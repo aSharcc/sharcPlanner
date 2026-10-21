@@ -32,17 +32,17 @@ app.get("/api/auth/google", (req, res) => {
         prompt: "consent"
     });
     res.redirect(authUrl);
-});
+}); 
 
 app.get("/api/auth/callback", async (req, res) => {
     const code = req.query.code;
     const error = req.query.error;
     
     if (error) { // if the auth returned an error
-        return res.status(400).json({ error: `google auth failed: ${error}` });
+        return res.status(400).json({ error: `google auth failed: ${error} :c` });
     }
     if (!code) { // ensuring it returned a code
-        return res.status(400).json({ error: "No authorisation code given" });
+        return res.status(400).json({ error: "No authorisation code given :c" });
     }
     try {
         const { tokens } = await auth.getToken(code);
@@ -57,13 +57,13 @@ app.get("/api/auth/callback", async (req, res) => {
         res.redirect("/");
     } catch (error) {
         console.error("Error exchanging token: ", error);
-        res.status(500).json({ error: "Server error during authentication" });
+        res.status(500).json({ error: "Server error during authentication :c" });
     }
 });
 
 app.get("/api/calendar/events", async (req, res) => {
     if (!userTokens) {
-        return res.status(401).send("Not Authenticated, go to /api/auth/google first");
+        return res.status(401).send("Not Authenticated, go to /api/auth/google first !!");
     }
     try {
         const calendar = google.calendar({ version: "v3", auth: auth });
@@ -73,16 +73,28 @@ app.get("/api/calendar/events", async (req, res) => {
             maxResults: 10,
             singleEvents: true,
             orderBy: "startTime"
-        });
+        });  
 
         const events = response.data.items;
-        res.json(events)
+        
+        if (!events || events.length === 0) {
+            return res.json({ message: "No events found. :c"});
+        }
+
+        const formattedEvents = events.map(events =>({
+            summary: events.summary || "No Name !!",
+            start: events.start.dateTime || events.start.date,
+            end: events.end.dateTime || events.end.date
+        })); 
+
+        return res.json(formattedEvents)
+
     } catch (error) {
-        console.error("Error getting calendar events: ", error)
-        res.status(500).send("Failed to get calendar events")
+        console.error(":c Error getting calendar events: ", error)
+        res.status(500).send(":c Failed to get calendar events")
     }
 });
 
 app.listen(PORT, () => { 
-    console.log(`Server running on port ${PORT}`) // `` for formatting
+    console.log(`Server running on port ${PORT} yippie !!`) // `` for formatting
 });
