@@ -11,16 +11,78 @@ const auth = new google.auth.OAuth2({
     redirectUri: process.env.GOOGLE_REDIRECT_URI
 });
 
+const SCOPES = ["https://www.googleapis.com/auth/calendar.events"]; // read and write calendar events
+
+let userTokens = null;
+
 app.use(express.json()); // sets middleware to convert JSON into js objects
 
 app.get("/", (req, res) => { // for root route
-    res.send("it's running !! (i think)"); // send confirmation
-});
+    if (userTokens) {
+        res.send("<p>we have a token for u !! </p><p><a href='/api/calendar/events'>View upcoming events</a></p>");
+    } else {
+        res.send("<p>We have no tokens :c</p><p><a href='/api/auth/google'>Click here to connect to google calendar</a></p>");
+    }
+}); 
 
 app.get("/api/auth/google", (req, res) => {
-
+    const authUrl = auth.generateAuthUrl({
+        access_type: "offline",
+        scope: SCOPES,
+        prompt: "consent"
+    });
+    res.redirect(authUrl);
 });
 
-app.listen(PORT, () => { // 
+app.get("/api/auth/callback", async (req, res) => {
+    const code = req.query.code;
+    const error = req.query.error;
+    
+    if (error) { // if the auth returned an error
+        return res.status(400).json({ error: `google auth failed: ${error}` });
+    }
+    if (!code) { // ensuring it returned a code
+        return res.status(400).json({ error: "No authorisation code given" });
+    }
+    try {
+        const { tokens } = await auth.getToken(code);
+
+        auth.setCredentials(tokens);
+        userTokens = tokens;
+
+        console.log("Successfully authenticated !! woop woop anyways tokens:");
+        console.log("Access token: ", tokens.access_token);
+        console.log("Refrest token: ", tokens.refresh_token);
+
+        res.redirect("/");
+    } catch (error) {
+        console.error("Error exchanging token: ", error);
+        res.status(500).json({ error: "Server error during authentication" });
+    }
+});
+
+app.get("/api/calendar/events", async (req, res) => {
+    if (!userTokens) {
+        return res.status(401).send("Not Authenticated, go to /api/auth/google first");
+    }
+    try {
+        const calendar = google.calendar({ version: "v3", auth: auth });
+        const response = await calendar.events.list({
+            calendarId: "primary",
+            timeMin: new Date().toISOString(),
+            maxResults: 10,
+            singleEvents: true,
+            orderBy: "startTime"
+        });
+
+        const events = response.data.items;
+        res.json(events)
+    } catch (error) {
+        console.error("Error getting calendar events: ", error)
+        res.status(500).send("Failed to get calendar events")
+    }
+});
+
+app.listen(PORT, () => { 
     console.log(`Server running on port ${PORT}`) // `` for formatting
 });
