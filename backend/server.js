@@ -16,6 +16,7 @@ const SCOPES = ["https://www.googleapis.com/auth/calendar.events"]; // read and 
 let userTokens = null;
 
 app.use(express.json()); // sets middleware to convert JSON into js objects
+app.use(express.urlencoded({ extended: true }));
 
 app.get("/", (req, res) => { // for root route
     if (userTokens) {
@@ -87,11 +88,56 @@ app.get("/api/calendar/events", async (req, res) => {
             end: events.end.dateTime || events.end.date
         })); 
 
-        return res.json(formattedEvents)
+        return res.json(formattedEvents);
 
     } catch (error) {
-        console.error(":c Error getting calendar events: ", error)
-        res.status(500).send(":c Failed to get calendar events")
+        console.error(":c Error getting calendar events: ", error);
+        res.status(500).send(":c Failed to get calendar events");
+    }
+});
+
+app.post("/api/calendar/add-event", async (req, res) => {
+    if (!userTokens) {
+        return res.status(401).send("Not Authenticated, go to /api/auth/google first !!");
+    }
+
+    const { summary, description, startISO, endISO} = req.body;
+
+    if (!summary || !startISO || !endISO) {
+        return res.status(400).send("Missing fields :c");
+    }
+ 
+    try {
+        const calendar = google.calendar({ version: "v3", auth: auth });
+
+        const event = {
+            summary: summary,
+            description: description || "Created with sharcPlanner",
+            start: {
+                dateTime: startISO
+            },
+            end: {
+                dateTime: endISO
+            },
+        };
+
+        const response = await calendar.events.insert({
+            calendarId: "primary",
+            requestBody: event
+        });
+
+        console.log("Event created !!");
+        console.log("Event link:", response.data.htmlLink);
+
+        res.json({ 
+            message: "Event created successfully",
+            link: response.data.htmlLink,
+            event: response.data
+        });
+
+    } catch (error) {
+        console.error(":c Error adding calendar event: ", error);
+        res.status(500).send(":c Failed to create event :c");
     }
 });
 
