@@ -1,0 +1,89 @@
+<!DOCTYPE HTML>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>sharcPlanner</title>
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css"/>
+        <style></style>
+    </head>
+    <body>
+        <main class="container">
+            <header>
+                <nav>
+                    <ul>
+                        <li><h1>sharcPlanner !!</h1></li>
+                    </ul>
+                    <ul>
+                        <li><a href="" role="button" class="outline">Login to Google Calendar</a></li>
+                    </ul>
+                </nav>
+                <hr>
+            </header>
+
+        
+            <fieldset> <!--Switch for selecting which form to use-->
+                <label for="AI-switch">
+                    <input id="AI-switch" role="switch" type="checkbox">
+                    AI Mode
+                </label>
+            </fieldset>
+            
+            <form id="manual-form"> <!--Manual form-->
+                <label for="manual-summary">
+                    Title
+                    <input id="manual-summary" name="manual-summary" type="text" required>
+                </label>
+                <label for="manual-description">
+                    Description
+                    <textarea id="manual-description" name="manual-description"></textarea>
+                </label>
+                <fieldset class="grid">
+                    <label for="manual-start-date">
+                        Start Date
+                        <input type="date" id="manual-start-date" name="manual-start-date" required>
+                    </label>
+                    <label for="manual-start-time">
+                        Start Time
+                        <input type="time" id="manual-start-time" name="manual-start-time">
+                    </label>
+                </fieldset>
+                <fieldset class="grid">
+                    <label for="manual-end-date">
+                        End Date
+                        <input type="date" id="manual-end-date" name="manual-end-date" required>
+                    </label>
+                    <label for="manual-end-time">
+                        End Time
+                        <input type="time" id="manual-end-time" name="manual-end-time">
+                    </label>
+                </fieldset>
+                <button type="submit">Add Event</button>
+            </form>
+
+            <form id="ai-form"> <!--AI form-->
+                    <label for="ai-goal">
+                        Goal
+                        <input id="ai-goal" name="ai-goal" type="text" required>
+                    </label>
+                    <label for="ai-time">
+                        Time (Hours)
+                        <input id="ai-time" name="ai-time" type="number" min="0.1" step="any" required>
+                    </label>
+                <fieldset class="grid">
+                    <label for="ai-deadline-date">
+                        Deadline Date
+                        <input type="date" id="ai-deadline-date" name="ai-deadline-date" required>
+                    </label>
+                    <label for="ai-deadline-time">
+                        Deadline Time
+                        <input type="time" id="ai-deadline-time" name="ai-deadline-time">
+                    </label>
+                </fieldset>
+                <button type="submit">Generate Schedule</button>
+            </form>
+
+            <script></script>
+        </main>
+    </body>
+</html>

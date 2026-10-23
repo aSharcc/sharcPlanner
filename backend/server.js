@@ -19,6 +19,7 @@ let userTokens = null;
 
 app.use(express.json()); // sets middleware to convert JSON into js objects
 app.use(express.urlencoded({ extended: true }));
+app.use(express.static("public"));
 
 app.get("/", (req, res) => { // for root route
     if (userTokens) {
