@@ -202,9 +202,36 @@ app.post("/api/ai/generate-events", async (req, res) => {
             }
         });
         const schedule = JSON.parse(response.text);
+        const calendar = google.calendar({ version: "v3", auth: auth });
+        const createdEvents = []
+        
+        for (const item of schedule) {
+            const event = {
+                summary: item.summary,
+                description: item.description || "Created with sharcPlanner AI :3",
+                start: {
+                    dateTime: item.startISO,
+                }, 
+                end: {
+                    dateTime: item.endISO,
+                },
+            };
+
+            const calendarResponse = await calendar.events.insert({
+               calendarId: "primary",
+               requestBody: event,
+            });
+
+            createdEvents.push({
+                summary: item.summary,
+                link: calendarResponse.data.htmlLink,
+            });
+        }  
+
         res.json({
-            message: "schedule generated yippie", 
-            schedule: schedule
+            message: "schedule generated and added to calendar yippie", 
+            eventsCreated: createdEvents.length,
+            schedule: createdEvents,
         })
     } catch (error) {
         console.error(":c Error generating AI events: ", error);
