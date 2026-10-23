@@ -26,17 +26,17 @@ app.get("/", (req, res) => { // for root route
     } else {
         res.send("<p>We have no tokens :c</p><p><a href='/api/auth/google'>Click here to connect to google calendar</a></p>");
     }
-}); 
+});  
 
 app.get("/api/auth/google", (req, res) => {
     const authUrl = auth.generateAuthUrl({
-        access_type: "offline",
+        access_type: "offline", 
         scope: SCOPES,
         prompt: "consent"
     });
     res.redirect(authUrl);
 }); 
-
+ 
 app.get("/api/auth/callback", async (req, res) => {
     const code = req.query.code;
     const error = req.query.error;
@@ -108,6 +108,9 @@ app.post("/api/calendar/add-event", async (req, res) => {
     if (!summary || !startISO || !endISO) {
         return res.status(400).send("Missing fields :c");
     }
+
+    const formattedStart = startISO.length === 16 ? `${startISO}:00Z` : startISO;
+    const formattedEnd = endISO.length === 16 ? `${endISO}:00Z` : endISO;
  
     try {
         const calendar = google.calendar({ version: "v3", auth: auth });
@@ -116,13 +119,13 @@ app.post("/api/calendar/add-event", async (req, res) => {
             summary: summary,
             description: description || "Created with sharcPlanner",
             start: {
-                dateTime: startISO
-            },
+                dateTime: formattedStart,
+            }, 
             end: {
-                dateTime: endISO
+                dateTime: formattedEnd,
             },
         };
-
+ 
         const response = await calendar.events.insert({
             calendarId: "primary",
             requestBody: event
@@ -200,7 +203,7 @@ app.post("/api/ai/generate-events", async (req, res) => {
         });
         const schedule = JSON.parse(response.text);
         res.json({
-            message: "schedule generated yippie",
+            message: "schedule generated yippie", 
             schedule: schedule
         })
     } catch (error) {
@@ -209,6 +212,6 @@ app.post("/api/ai/generate-events", async (req, res) => {
     }
 });
 
-app.listen(PORT, () => { 
+app.listen(PORT, () => {  
     console.log(`Server running on port ${PORT} yippie !!`) // `` for formatting
 });
