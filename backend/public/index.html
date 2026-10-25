@@ -148,7 +148,14 @@
                     const data = Object.fromEntries(formData);
 
                     try {
+                        
+
                         if (form.id === "manual-form") {
+                            if (!data["manual-summary"] || !data["manual-start-date"] || !data["manual-end-date"]) {
+                                showFlash("Please fill all fields", "bad");
+                                return;
+                            }
+
                             const startISO = new Date(`${data["manual-start-date"]}T${data["manual-start-time"] || "00:00"}`);
                             const endISO = new Date(`${data["manual-end-date"]}T${data["manual-end-time"] || "00:00"}`);
 
@@ -156,6 +163,7 @@
                                 showFlash("End date must be after start date", "bad");
                                 return;
                             }
+                            
 
                             const payload = {
                                 summary: data["manual-summary"],
@@ -178,6 +186,11 @@
                                 showFlash(`Failed to create event (Status: ${response.status})`, "bad");
                             }
                         } else if (form.id === "ai-form") {
+                            if (!data["ai-goal"] || !data["ai-deadline-date"] || !data["ai-time"]) {
+                                showFlash("Please fill all fields", "bad");
+                                return;
+                            }
+
                             const deadline = new Date(`${data["ai-deadline-date"]}T${data["ai-deadline-time"] || "00:00"}`);
 
                             if (deadline.getTime() < today.getTime()) {
@@ -211,6 +224,6 @@
                     }
                 });
             </script>
-        </main>
+        </main> 
     </body>
 </html>
