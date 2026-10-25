@@ -21,14 +21,6 @@ app.use(express.json()); // sets middleware to convert JSON into js objects
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static("public"));
 
-app.get("/", (req, res) => { // for root route
-    if (userTokens) {
-        res.send("<p>we have a token for u !! </p><p><a href='/api/calendar/events'>View upcoming events</a></p>");
-    } else {
-        res.send("<p>We have no tokens :c</p><p><a href='/api/auth/google'>Click here to connect to google calendar</a></p>");
-    }
-});  
-
 app.get("/api/auth/google", (req, res) => {
     const authUrl = auth.generateAuthUrl({
         access_type: "offline", 
@@ -56,7 +48,7 @@ app.get("/api/auth/callback", async (req, res) => {
 
         console.log("Successfully authenticated !! woop woop anyways tokens:");
         console.log("Access token: ", tokens.access_token);
-        console.log("Refrest token: ", tokens.refresh_token);
+        console.log("Refresh token: ", tokens.refresh_token);
 
         res.redirect("/");
     } catch (error) {
@@ -233,11 +225,16 @@ app.post("/api/ai/generate-events", async (req, res) => {
             message: "schedule generated and added to calendar yippie", 
             eventsCreated: createdEvents.length,
             schedule: createdEvents,
-        })
+        });
     } catch (error) {
         console.error(":c Error generating AI events: ", error);
         res.status(500).send(":c Failed to generate ai event :c");
     }
+});
+
+app.get("/api/auth/status", (req, res) => {
+    if (userTokens) res.json( { isAuthenticated: true });
+    else res.json({ isAuthenticated: false });
 });
 
 app.listen(PORT, () => {  

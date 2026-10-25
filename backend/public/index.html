@@ -8,60 +8,60 @@
         <style></style>
     </head>
     <body>
+        <header class="container">
+            <nav>
+                <ul>
+                    <li><h1>sharcPlanner !!</h1></li>
+                </ul>
+                <ul>
+                    <li><a href="/api/auth/google" id="login-button" target="_self" role="button" class="outline">Connect to Google Calendar</a></li>
+                </ul>
+            </nav>
+            <hr>
+        </header> 
         <main class="container">
-            <header>
-                <nav>
-                    <ul>
-                        <li><h1>sharcPlanner !!</h1></li>
-                    </ul>
-                    <ul>
-                        <li><a href="" role="button" class="outline">Login to Google Calendar</a></li>
-                    </ul>
-                </nav>
-                <hr>
-            </header>
+            <div id="flash-message" hidden style="border-left: 0.25rem solid; padding: 1rem; border-radius: var(--pico-border-radius); margin-bottom: var(--pico-spacing);"></div>
 
-        
             <fieldset> <!--Switch for selecting which form to use-->
-                <label for="AI-switch">
-                    <input id="AI-switch" role="switch" type="checkbox">
-                    AI Mode
+                <label for="ai-switch">
+                    <input id="ai-switch" role="switch" type="checkbox">
+                    AI Mode 
                 </label>
-            </fieldset>
+            </fieldset> 
             
-            <form id="manual-form"> <!--Manual form-->
+            <form id="manual-form"> <!--Manual form (shown by default)-->
                 <label for="manual-summary">
                     Title
                     <input id="manual-summary" name="manual-summary" type="text" required>
                 </label>
-                <label for="manual-description">
+                <label for="manual-description">   
                     Description
                     <textarea id="manual-description" name="manual-description"></textarea>
                 </label>
-                <fieldset class="grid">
+                <div class="grid">
                     <label for="manual-start-date">
                         Start Date
                         <input type="date" id="manual-start-date" name="manual-start-date" required>
                     </label>
                     <label for="manual-start-time">
                         Start Time
-                        <input type="time" id="manual-start-time" name="manual-start-time">
+                        <input type="time" value="00:00" id="manual-start-time" name="manual-start-time">
                     </label>
-                </fieldset>
-                <fieldset class="grid">
+                </div>
+                <div class="grid">
                     <label for="manual-end-date">
                         End Date
                         <input type="date" id="manual-end-date" name="manual-end-date" required>
                     </label>
                     <label for="manual-end-time">
                         End Time
-                        <input type="time" id="manual-end-time" name="manual-end-time">
+                        <input type="time" value="00:00" id="manual-end-time" name="manual-end-time">
                     </label>
-                </fieldset>
+                </div>
                 <button type="submit">Add Event</button>
             </form>
 
-            <form id="ai-form"> <!--AI form-->
+            <form id="ai-form" hidden> <!--AI form (hidden by default)-->
                     <label for="ai-goal">
                         Goal
                         <input id="ai-goal" name="ai-goal" type="text" required>
@@ -70,20 +70,142 @@
                         Time (Hours)
                         <input id="ai-time" name="ai-time" type="number" min="0.1" step="any" required>
                     </label>
-                <fieldset class="grid">
+                <div class="grid">
                     <label for="ai-deadline-date">
                         Deadline Date
                         <input type="date" id="ai-deadline-date" name="ai-deadline-date" required>
                     </label>
                     <label for="ai-deadline-time">
                         Deadline Time
-                        <input type="time" id="ai-deadline-time" name="ai-deadline-time">
+                        <input type="time" value="00:00" id="ai-deadline-time" name="ai-deadline-time">
                     </label>
-                </fieldset>
+                </div>
                 <button type="submit">Generate Schedule</button>
             </form>
 
-            <script></script>
+            <script>
+                const aiSwitch = document.getElementById("ai-switch");
+                const manualForm = document.getElementById("manual-form");
+                const aiForm = document.getElementById("ai-form");
+                const flashBox = document.getElementById("flash-message");
+                let flashTimeout = null;
+                const loginButton = document.getElementById("login-button");
+
+                function updateFormVisability() {
+                    const isAI = aiSwitch.checked;
+                    manualForm.hidden = isAI;
+                    aiForm.hidden = !isAI;
+                    flashBox.hidden = true;
+                }
+
+                function showFlash(message, type) {
+                    if (flashTimeout) clearTimeout(flashTimeout);
+                    flashBox.innerText = message;
+                    flashBox.hidden = false;
+
+                    if (type === "bad") {
+                        flashBox.style.borderLeftColor = "red";
+                    } else if (type === "good") {
+                        flashBox.style.borderLeftColor = "green";
+                    }
+
+                    flashTimeout = setTimeout(() => {
+                        flashBox.hidden = true;
+                    }, 4000);
+                }
+                
+                async function updateLoginStatus() {
+                    try {
+                        const response = await fetch("/api/auth/status");
+                        const data = await response.json();
+                        if (data.isAuthenticated === true) {
+                            loginButton.innerText = "Connected to google";
+                            loginButton.style.borderColor = "green";
+                        } else {
+                            loginButton.innerText = "Connect to Google Calendar";
+                            loginButton.style.borderColor = "red";
+                        }
+                    } catch (error) {
+                        console.log("Could not get login status: ", error);
+                    }
+                }
+
+                updateLoginStatus();
+                updateFormVisability();
+                aiSwitch.addEventListener("change", updateFormVisability);
+
+                const date = new Date();
+                document.querySelectorAll("input[type=date]").forEach(element => {
+                    element.value = date.toLocaleDateString('sv-SE');
+                });
+
+                document.addEventListener("submit", async (event) => {
+                    event.preventDefault();
+
+                    const form = event.target;
+                    const formData = new FormData(form);
+                    const data = Object.fromEntries(formData);
+
+                    try {
+                        if (form.id === "manual-form") {
+                            const startISO = new Date(`${data["manual-start-date"]}T${data["manual-start-time"] || "00:00"}`).toISOString();
+                            const endISO = new Date(`${data["manual-end-date"]}T${data["manual-end-time"] || "00:00"}`).toISOString();
+
+                            const payload = {
+                                summary: data["manual-summary"],
+                                description: data["manual-description"],
+                                startISO: startISO,
+                                endISO: endISO,
+                            }; 
+                            const response = await fetch("/api/calendar/add-event", {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify(payload)
+                            });
+
+                            if (response.ok) {
+                                console.log("Manual event added successfully");
+                                form.reset();
+                                showFlash("Yippie event created", "good");
+                            } else {
+                                console.log("Manual event failed: ", response.status);
+                                showFlash(`Failed to create event (Status: ${response.status})`, "bad");
+                            }
+                        } else if (form.id === "ai-form") {
+                            const deadline = new Date(`${data["ai-deadline-date"]}T${data["ai-deadline-time"] || "00:00"}`).toISOString();
+
+                            const payload = {
+                                goal: data["ai-goal"],
+                                time: Number(data["ai-time"]),
+                                deadline: deadline,
+                            };
+
+                            const response = await fetch("/api/ai/generate-events", {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify(payload)
+                            });
+
+                            if (response.ok) {
+                                console.log("ai plan added successfully");
+                                form.reset();
+                                showFlash("Yippie ai plan created", "good");
+                            } else {
+                                console.log("AI plan failed: ", response.status);
+                                showFlash(`Failed to create ai plan (Status: ${response.status})`, "bad");
+                            }
+                        }
+                    } catch (error) {
+                        console.error("sumbission error: ", error);
+                    }
+                });
+            </script>
         </main>
     </body>
 </html>
+
+
+
+
+
+
