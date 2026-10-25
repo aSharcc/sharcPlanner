@@ -104,7 +104,7 @@
                     flashBox.innerText = message;
                     flashBox.hidden = false;
 
-                    if (type === "bad") {
+                    if (type === "bad") { 
                         flashBox.style.borderLeftColor = "red";
                     } else if (type === "good") {
                         flashBox.style.borderLeftColor = "green";
@@ -120,11 +120,14 @@
                         const response = await fetch("/api/auth/status");
                         const data = await response.json();
                         if (data.isAuthenticated === true) {
-                            loginButton.innerText = "Connected to google";
+                            loginButton.innerText = "Log Out";
                             loginButton.style.borderColor = "green";
+                            loginButton.href = "/api/auth/logout";
                         } else {
                             loginButton.innerText = "Connect to Google Calendar";
                             loginButton.style.borderColor = "red";
+                            loginButton.href = "/api/auth/google";
+                            
                         }
                     } catch (error) {
                         console.log("Could not get login status: ", error);

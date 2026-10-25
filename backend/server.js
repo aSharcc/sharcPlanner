@@ -57,6 +57,12 @@ app.get("/api/auth/callback", async (req, res) => {
     }
 });
 
+app.get("/api/auth/logout", (req, res) => {
+    userTokens = null; 
+    console.log("User logged out successfully");
+    res.redirect("/");
+});
+
 app.get("/api/calendar/events", async (req, res) => {
     if (!userTokens) {
         return res.status(401).send("Not Authenticated, go to /api/auth/google first !!");

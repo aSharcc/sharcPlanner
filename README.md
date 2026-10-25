@@ -1,6 +1,8 @@
 # sharcPlanner (rawr)
 An AI powered task schedeuling assitant that breaks down goals into smaller, achievable steps and automatically syncs them to your google calendar
 
+This app accesses Google Calendar events. The data is used solely to generate AI study schedules and is not shared or sold. The app is provided "as-is" for project purposes.
+
 ## Features
 - **Google OAuth2 Authentication:** Securely connects your google account to manage events directly
 - **Two Modes:**
@@ -20,7 +22,7 @@ An AI powered task schedeuling assitant that breaks down goals into smaller, ach
 - A Gemini API key
 
 ### 2. Clone Repo
-git clone https://github.com/aSharcc/sharcPlanner.git
+- git clone https://github.com/aSharcc/sharcPlanner.git
 
 ### 3. Install Dependancies
 - npm install express dotenv/config googleapis @google/genai
