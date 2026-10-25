@@ -90,6 +90,7 @@
                 const flashBox = document.getElementById("flash-message");
                 let flashTimeout = null;
                 const loginButton = document.getElementById("login-button");
+                const today = new Date();
 
                 function updateFormVisability() {
                     const isAI = aiSwitch.checked;
@@ -134,9 +135,9 @@
                 updateFormVisability();
                 aiSwitch.addEventListener("change", updateFormVisability);
 
-                const date = new Date();
                 document.querySelectorAll("input[type=date]").forEach(element => {
-                    element.value = date.toLocaleDateString('sv-SE');
+                    element.value = today.toLocaleDateString('sv-SE');
+                    element.min = today.toISOString().split("T")[0];
                 });
 
                 document.addEventListener("submit", async (event) => {
@@ -148,14 +149,19 @@
 
                     try {
                         if (form.id === "manual-form") {
-                            const startISO = new Date(`${data["manual-start-date"]}T${data["manual-start-time"] || "00:00"}`).toISOString();
-                            const endISO = new Date(`${data["manual-end-date"]}T${data["manual-end-time"] || "00:00"}`).toISOString();
+                            const startISO = new Date(`${data["manual-start-date"]}T${data["manual-start-time"] || "00:00"}`);
+                            const endISO = new Date(`${data["manual-end-date"]}T${data["manual-end-time"] || "00:00"}`);
+
+                            if (startISO.getTime() > endISO.getTime()) {
+                                showFlash("End date must be after start date", "bad");
+                                return;
+                            }
 
                             const payload = {
                                 summary: data["manual-summary"],
                                 description: data["manual-description"],
-                                startISO: startISO,
-                                endISO: endISO,
+                                startISO: startISO.toISOString(),
+                                endISO: endISO.toISOString(),
                             }; 
                             const response = await fetch("/api/calendar/add-event", {
                                 method: "POST",
@@ -172,12 +178,17 @@
                                 showFlash(`Failed to create event (Status: ${response.status})`, "bad");
                             }
                         } else if (form.id === "ai-form") {
-                            const deadline = new Date(`${data["ai-deadline-date"]}T${data["ai-deadline-time"] || "00:00"}`).toISOString();
+                            const deadline = new Date(`${data["ai-deadline-date"]}T${data["ai-deadline-time"] || "00:00"}`);
+
+                            if (deadline.getTime() < today.getTime()) {
+                                showFlash("Deadline must be in the future", "bad");
+                                return;
+                            }
 
                             const payload = {
                                 goal: data["ai-goal"],
                                 time: Number(data["ai-time"]),
-                                deadline: deadline,
+                                deadline: deadline.toISOString(),
                             };
 
                             const response = await fetch("/api/ai/generate-events", {
@@ -203,9 +214,3 @@
         </main>
     </body>
 </html>
-
-
-
-
-
-
