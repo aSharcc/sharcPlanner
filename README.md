@@ -1,6 +1,8 @@
 # sharcPlanner (rawr)
 An AI powered task schedeuling assitant that breaks down goals into smaller, achievable steps and automatically syncs them to your google calendar
 
+## Privacy and TOS info
+
 This app accesses Google Calendar events. The data is used solely to generate AI study schedules and is not shared or sold. The app is provided "as-is" for project purposes.
 
 ## Features
@@ -17,7 +19,7 @@ This app accesses Google Calendar events. The data is used solely to generate AI
    
 ## How to run locally
 ### 1. What you need
-- Node.js installed
+- Node.js installed 
 - A Google Cloud Console project with google calendar api activated
 - A Gemini API key
 
