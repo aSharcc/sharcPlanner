@@ -2,10 +2,19 @@ import express from "express"; // for post and get
 import "dotenv/config"; // for geting stuff from .env
 import { google } from "googleapis";
 import { GoogleGenAI, Type } from "@google/genai";
+import session from "express-session";
+import pg from "pg";
+import connectPgSimple from "connect-pg-simple";
 
 const app = express(); // start the webapp with express
 const PORT = process.env.PORT || 8000; // set the port to what's in .env else 8000
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+const { Pool } = pg;
+const pool = new Pool({
+    connectionString: process.env.DATABASE_URL,
+});
+
+const PgSession = connectPgSimple(session);
 
 const auth = new google.auth.OAuth2({
     clientId: process.env.GOOGLE_CLIENT_ID,
@@ -15,11 +24,12 @@ const auth = new google.auth.OAuth2({
 
 const SCOPES = ["https://www.googleapis.com/auth/calendar.events"]; // read and write calendar events
 
-let userTokens = null;
-
 app.use(express.json()); // sets middleware to convert JSON into js objects
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static("public"));
+app.use(session({
+    
+}));
 
 app.get("/api/auth/google", (req, res) => {
     const authUrl = auth.generateAuthUrl({
@@ -89,7 +99,7 @@ app.get("/api/calendar/events", async (req, res) => {
             end: event.end.dateTime || event.end.date
         })); 
 
-        return res.json(formattedEvents);
+        return res.json(formattedEvents);   
 
     } catch (error) {
         console.error(":c Error getting calendar events: ", error);
