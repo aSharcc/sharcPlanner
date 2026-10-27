@@ -31,6 +31,7 @@ app.use(session({
     store: new PgSession({
         pool: pool,
         tableName: "session",
+        port: process.env.DATABASE_PORT || 5432,
     }),
     secret: process.env.SESSION_SECRET || "defaultsecret",
     resave: false,
@@ -280,6 +281,23 @@ app.post("/api/ai/generate-events", authenticateGoogle, async (req, res) => {
 app.get("/api/auth/status", (req, res) => {
     if (req.session.userTokens) res.json( { isAuthenticated: true });
     else res.json({ isAuthenticated: false });
+});
+
+app.get("/api/themes/current", async (req, res) => {
+    try {
+        const result = await pool.query(`SELECT * FROM weekly_themes
+            WHERE start_date <= CURRENT_DATE
+            ORDER BY start_date DESC 
+            LIMIT 1
+        `);
+        if (result.rows.length === 0) {
+            return res.json({ message: "No current theme found." });
+        }
+        res.json(result.rows[0]);
+    } catch (error) {
+        console.error("Error fetching current theme: ", error);
+        res.status(500).send("Failed to fetch current theme :c");
+    }
 });
 
 app.listen(PORT, () => {  

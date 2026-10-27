@@ -29,6 +29,12 @@
                     AI Mode 
                 </label>
             </fieldset> 
+
+            <div id="weekly-theme" style="padding-bottom: 1rem;">
+                <h3 id="theme-title">Weekly Theme !!</h3>
+                <p id="theme-description"></p>
+                <button id="use-theme" class="outline">Use the Theme in AI Mode</button>
+            </div>
             
             <form id="manual-form"> <!--Manual form (shown by default)-->
                 <label for="manual-summary">
@@ -40,7 +46,7 @@
                     <textarea id="manual-description" name="manual-description"></textarea>
                 </label>
                 <div class="grid">
-                    <label for="manual-start-date">
+                    <label for="manual-start-date"> 
                         Start Date
                         <input type="date" id="manual-start-date" name="manual-start-date" required>
                     </label>
@@ -139,9 +145,37 @@
                     }
                 }
 
+                async function fetchWeeklyTheme() {
+                    try {
+                        const response = await fetch("/api/themes/current");
+                        const theme = await response.json();
+
+                        if (theme && theme.title && theme.description) {
+                            document.getElementById("theme-title").textContent = theme.title;
+                            document.getElementById("theme-description").textContent = theme.description;
+
+                            document.getElementById("use-theme").addEventListener("click", () => {
+                                aiSwitch.checked = true;
+                                updateFormVisability();
+                                document.getElementById("ai-goal").value = theme.description;
+                                document.getElementById("ai-time").value = theme.suggested_hours || 1;
+                                
+                                const startDate = new Date(theme.start_date);
+                                startDate.setDate(startDate.getDate() + 7);
+                                document.getElementById("ai-deadline-date").value = startDate.toISOString().split("T")[0];
+                            });
+                        } else {
+                            document.getElementById("weekly-theme").hidden = true;
+                        }
+                    } catch (error) {
+                        console.log("Could not get weekly theme: ", error);
+                    }
+                }
+
                 updateLoginStatus();
                 updateFormVisability();
                 aiSwitch.addEventListener("change", updateFormVisability);
+                fetchWeeklyTheme();
 
                 document.querySelectorAll("input[type=date]").forEach(element => {
                     element.value = today.toLocaleDateString('sv-SE');
