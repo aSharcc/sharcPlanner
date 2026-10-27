@@ -28,8 +28,14 @@ app.use(express.json()); // sets middleware to convert JSON into js objects
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static("public"));
 app.use(session({
-    
-}));
+    store: new PgSession({
+        pool: pool,
+        tableName: "session",
+    }),
+    secret: process.env.SESSION_SECRET || "defaultsecret",
+    resave: false,
+    saveUninitialized: false,
+})); 
 
 app.get("/api/auth/google", (req, res) => {
     const authUrl = auth.generateAuthUrl({
@@ -53,8 +59,8 @@ app.get("/api/auth/callback", async (req, res) => {
     try {
         const { tokens } = await auth.getToken(code);
 
-        auth.setCredentials(tokens);
-        userTokens = tokens;
+        req.session.userTokens = tokens;
+        req.session.save();
 
         console.log("Successfully authenticated !! woop woop anyways tokens:");
         console.log("Access token: ", tokens.access_token);
@@ -68,17 +74,34 @@ app.get("/api/auth/callback", async (req, res) => {
 });
 
 app.get("/api/auth/logout", (req, res) => {
-    userTokens = null; 
+    req.session.destroy();
     console.log("User logged out successfully");
     res.redirect("/");
 });
 
 app.get("/api/calendar/events", async (req, res) => {
-    if (!userTokens) {
+    if (!req.session.userTokens) {
         return res.status(401).send("Not Authenticated, go to /api/auth/google first !!");
     }
+
+    const authClient = new google.auth.OAuth2({
+        clientId: process.env.GOOGLE_CLIENT_ID,
+        clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+        redirectUri: process.env.GOOGLE_REDIRECT_URI
+    });
+    authClient.setCredentials(req.session.userTokens);
+
+    authClient.on("tokens", (tokens) => {
+        if (tokens.refresh_token) {
+            req.session.userTokens.refresh_token = tokens.refresh_token;
+        }
+        req.session.userTokens.access_token = tokens.access_token;
+        req.session.userTokens.expiry_date = tokens.expiry_date;
+        req.session.save();
+    });
+
     try {
-        const calendar = google.calendar({ version: "v3", auth: auth });
+        const calendar = google.calendar({ version: "v3", auth: authClient });
         const response = await calendar.events.list({
             calendarId: "primary",
             timeMin: new Date().toISOString(),
@@ -108,9 +131,27 @@ app.get("/api/calendar/events", async (req, res) => {
 });
 
 app.post("/api/calendar/add-event", async (req, res) => {
-    if (!userTokens) {
+    if (!req.session.userTokens) {
         return res.status(401).send("Not Authenticated, go to /api/auth/google first !!");
     }
+
+    const authClient = new google.auth.OAuth2({
+        clientId: process.env.GOOGLE_CLIENT_ID,
+        clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+        redirectUri: process.env.GOOGLE_REDIRECT_URI
+    });
+
+    authClient.setCredentials(req.session.userTokens);
+
+    authClient.on("tokens", (tokens) => {
+        if (tokens.refresh_token) {
+            req.session.userTokens.refresh_token = tokens.refresh_token;
+        }
+        req.session.userTokens.access_token = tokens.access_token;
+        req.session.userTokens.expiry_date = tokens.expiry_date;
+        req.session.save();
+    });
+
 
     const { summary, description, startISO, endISO} = req.body;
 
@@ -122,7 +163,7 @@ app.post("/api/calendar/add-event", async (req, res) => {
     const formattedEnd = endISO.length === 16 ? `${endISO}:00Z` : endISO;
  
     try {
-        const calendar = google.calendar({ version: "v3", auth: auth });
+        const calendar = google.calendar({ version: "v3", auth: authClient });
 
         const event = {
             summary: summary,
@@ -156,9 +197,27 @@ app.post("/api/calendar/add-event", async (req, res) => {
 });
 
 app.post("/api/ai/generate-events", async (req, res) => {
-    if (!userTokens) {
+    if (!req.session.userTokens) {
         return res.status(401).send("Not Authenticated, go to /api/auth/google first !!");
     }
+
+    const authClient = new google.auth.OAuth2({
+        clientId: process.env.GOOGLE_CLIENT_ID,
+        clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+        redirectUri: process.env.GOOGLE_REDIRECT_URI
+    });
+
+    authClient.setCredentials(req.session.userTokens);
+
+    authClient.on("tokens", (tokens) => {
+        if (tokens.refresh_token) {
+            req.session.userTokens.refresh_token = tokens.refresh_token;
+        }
+        req.session.userTokens.access_token = tokens.access_token;
+        req.session.userTokens.expiry_date = tokens.expiry_date;
+        req.session.save();
+    });
+
 
     const { goal, time, deadline } = req.body;
 
@@ -210,8 +269,10 @@ app.post("/api/ai/generate-events", async (req, res) => {
                 },
             }
         });
-        const schedule = JSON.parse(response.text);
-        const calendar = google.calendar({ version: "v3", auth: auth });
+        const rawText = response.text.trim();
+        const cleanedText = rawText.replace(/^```json\s*/i, "").replace(/```\s*$/, "");
+        const schedule = JSON.parse(cleanedText);
+        const calendar = google.calendar({ version: "v3", auth: authClient });
         const createdEvents = []
         
         for (const item of schedule) {
@@ -249,7 +310,7 @@ app.post("/api/ai/generate-events", async (req, res) => {
 });
 
 app.get("/api/auth/status", (req, res) => {
-    if (userTokens) res.json( { isAuthenticated: true });
+    if (req.session.userTokens) res.json( { isAuthenticated: true });
     else res.json({ isAuthenticated: false });
 });
 
