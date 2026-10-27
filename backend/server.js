@@ -37,6 +37,32 @@ app.use(session({
     saveUninitialized: false,
 })); 
 
+function authenticateGoogle(req, res, next) {
+    if (!req.session.userTokens) {
+        return res.status(401).send("Not Authenticated, go to /api/auth/google first !!");
+    }
+
+    const authClient = new google.auth.OAuth2({
+        clientId: process.env.GOOGLE_CLIENT_ID,
+        clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+        redirectUri: process.env.GOOGLE_REDIRECT_URI
+    });
+
+    authClient.setCredentials(req.session.userTokens);
+
+    authClient.on("tokens", (tokens) => {
+        if (tokens.refresh_token) {
+            req.session.userTokens.refresh_token = tokens.refresh_token;
+        }
+        req.session.userTokens.access_token = tokens.access_token;
+        req.session.userTokens.expiry_date = tokens.expiry_date;
+        req.session.save();
+    });
+
+    req.authClient = authClient;
+    next();
+}
+
 app.get("/api/auth/google", (req, res) => {
     const authUrl = auth.generateAuthUrl({
         access_type: "offline", 
@@ -79,29 +105,9 @@ app.get("/api/auth/logout", (req, res) => {
     res.redirect("/");
 });
 
-app.get("/api/calendar/events", async (req, res) => {
-    if (!req.session.userTokens) {
-        return res.status(401).send("Not Authenticated, go to /api/auth/google first !!");
-    }
-
-    const authClient = new google.auth.OAuth2({
-        clientId: process.env.GOOGLE_CLIENT_ID,
-        clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-        redirectUri: process.env.GOOGLE_REDIRECT_URI
-    });
-    authClient.setCredentials(req.session.userTokens);
-
-    authClient.on("tokens", (tokens) => {
-        if (tokens.refresh_token) {
-            req.session.userTokens.refresh_token = tokens.refresh_token;
-        }
-        req.session.userTokens.access_token = tokens.access_token;
-        req.session.userTokens.expiry_date = tokens.expiry_date;
-        req.session.save();
-    });
-
+app.get("/api/calendar/events", authenticateGoogle, async (req, res) => {
     try {
-        const calendar = google.calendar({ version: "v3", auth: authClient });
+        const calendar = google.calendar({ version: "v3", auth: req.authClient });
         const response = await calendar.events.list({
             calendarId: "primary",
             timeMin: new Date().toISOString(),
@@ -130,29 +136,7 @@ app.get("/api/calendar/events", async (req, res) => {
     }
 });
 
-app.post("/api/calendar/add-event", async (req, res) => {
-    if (!req.session.userTokens) {
-        return res.status(401).send("Not Authenticated, go to /api/auth/google first !!");
-    }
-
-    const authClient = new google.auth.OAuth2({
-        clientId: process.env.GOOGLE_CLIENT_ID,
-        clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-        redirectUri: process.env.GOOGLE_REDIRECT_URI
-    });
-
-    authClient.setCredentials(req.session.userTokens);
-
-    authClient.on("tokens", (tokens) => {
-        if (tokens.refresh_token) {
-            req.session.userTokens.refresh_token = tokens.refresh_token;
-        }
-        req.session.userTokens.access_token = tokens.access_token;
-        req.session.userTokens.expiry_date = tokens.expiry_date;
-        req.session.save();
-    });
-
-
+app.post("/api/calendar/add-event", authenticateGoogle, async (req, res) => {
     const { summary, description, startISO, endISO} = req.body;
 
     if (!summary || !startISO || !endISO) {
@@ -163,7 +147,7 @@ app.post("/api/calendar/add-event", async (req, res) => {
     const formattedEnd = endISO.length === 16 ? `${endISO}:00Z` : endISO;
  
     try {
-        const calendar = google.calendar({ version: "v3", auth: authClient });
+        const calendar = google.calendar({ version: "v3", auth: req.authClient });
 
         const event = {
             summary: summary,
@@ -196,29 +180,7 @@ app.post("/api/calendar/add-event", async (req, res) => {
     }
 });
 
-app.post("/api/ai/generate-events", async (req, res) => {
-    if (!req.session.userTokens) {
-        return res.status(401).send("Not Authenticated, go to /api/auth/google first !!");
-    }
-
-    const authClient = new google.auth.OAuth2({
-        clientId: process.env.GOOGLE_CLIENT_ID,
-        clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-        redirectUri: process.env.GOOGLE_REDIRECT_URI
-    });
-
-    authClient.setCredentials(req.session.userTokens);
-
-    authClient.on("tokens", (tokens) => {
-        if (tokens.refresh_token) {
-            req.session.userTokens.refresh_token = tokens.refresh_token;
-        }
-        req.session.userTokens.access_token = tokens.access_token;
-        req.session.userTokens.expiry_date = tokens.expiry_date;
-        req.session.save();
-    });
-
-
+app.post("/api/ai/generate-events", authenticateGoogle, async (req, res) => {
     const { goal, time, deadline } = req.body;
 
     if (!goal || !time || !deadline) {
@@ -271,8 +233,14 @@ app.post("/api/ai/generate-events", async (req, res) => {
         });
         const rawText = response.text.trim();
         const cleanedText = rawText.replace(/^```json\s*/i, "").replace(/```\s*$/, "");
-        const schedule = JSON.parse(cleanedText);
-        const calendar = google.calendar({ version: "v3", auth: authClient });
+        let schedule;
+        try {
+            schedule = JSON.parse(cleanedText);
+        } catch (error) {
+            console.error("Error parsing AI response:", error);
+            return res.status(500).send("Invalid response format from AI :c");
+        }
+        const calendar = google.calendar({ version: "v3", auth: req.authClient });
         const createdEvents = []
         
         for (const item of schedule) {
