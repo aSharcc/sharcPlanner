@@ -170,11 +170,11 @@
                     } catch (error) {
                         console.log("Could not get weekly theme: ", error);
                     }
-                }
+                } 
 
                 updateLoginStatus();
                 updateFormVisability();
-                aiSwitch.addEventListener("change", updateFormVisability);
+                aiSwitch.addEventListener("change", updateFormVisability); 
                 fetchWeeklyTheme();
 
                 document.querySelectorAll("input[type=date]").forEach(element => {
@@ -185,13 +185,13 @@
                 document.addEventListener("submit", async (event) => {
                     event.preventDefault();
 
-                    const form = event.target;
+                    const form = event.target; 
                     const formData = new FormData(form);
                     const data = Object.fromEntries(formData);
+                    const button = form.querySelector("button[type=submit]");
+                    const originalText = button.innerText;
 
                     try {
-                        
-
                         if (form.id === "manual-form") {
                             if (!data["manual-summary"] || !data["manual-start-date"] || !data["manual-end-date"]) {
                                 showFlash("Please fill all fields", "bad");
@@ -212,19 +212,27 @@
                                 description: data["manual-description"],
                                 startISO: startISO.toISOString(),
                                 endISO: endISO.toISOString(),
-                            }; 
+                            };
+
+                            button.disabled = true;
+                            button.innerText = "Creating event...";
+
                             const response = await fetch("/api/calendar/add-event", {
                                 method: "POST",
                                 headers: { "Content-Type": "application/json" },
                                 body: JSON.stringify(payload)
                             });
-
+ 
                             if (response.ok) {
-                                console.log("Manual event added successfully");
+                                console.log("Manual event added successfully"); 
                                 form.reset();
                                 showFlash("Yippie event created", "good");
                             } else {
                                 console.log("Manual event failed: ", response.status);
+                                if (response.status === 401) {
+                                    showFlash("Please log in first !!", "bad");
+                                    return;
+                                }
                                 showFlash(`Failed to create event (Status: ${response.status})`, "bad");
                             }
                         } else if (form.id === "ai-form") {
@@ -243,9 +251,12 @@
                             const payload = {
                                 goal: data["ai-goal"],
                                 time: Number(data["ai-time"]),
-                                deadline: deadline.toISOString(),
+                                deadline: deadline.toISOString(), 
                             };
 
+                            button.disabled = true;
+                            button.innerText = "Generating Schedule....";
+                            
                             const response = await fetch("/api/ai/generate-events", {
                                 method: "POST",
                                 headers: { "Content-Type": "application/json" },
@@ -258,11 +269,19 @@
                                 showFlash("Yippie ai plan created", "good");
                             } else {
                                 console.log("AI plan failed: ", response.status);
+                                if (response.status === 401) {
+                                    showFlash("Please log in first !!", "bad");
+                                    return;
+                                }
                                 showFlash(`Failed to create ai plan (Status: ${response.status})`, "bad");
                             }
                         }
                     } catch (error) {
                         console.error("sumbission error: ", error);
+                        showFlash(`:c error: ${error}`, "bad");
+                    } finally {
+                        button.disabled = false;
+                        button.innerText = originalText;
                     }
                 });
             </script>

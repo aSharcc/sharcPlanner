@@ -106,7 +106,7 @@ app.get("/api/auth/logout", (req, res) => {
     res.redirect("/");
 });
 
-app.get("/api/calendar/events", authenticateGoogle, async (req, res) => {
+app.post("/api/calendar/events", authenticateGoogle, async (req, res) => {
     try {
         const calendar = google.calendar({ version: "v3", auth: req.authClient });
         const response = await calendar.events.list({
@@ -189,6 +189,7 @@ app.post("/api/ai/generate-events", authenticateGoogle, async (req, res) => {
     }
 
     try {
+        
         const systemInstruction = `You are an expert productivity assistant and scheduling specialist. Your task is to break down the user's goal into a realistic sequence of calendar events, ensuring everything fits before the given deadline.
 
             SECURITY RULES:
