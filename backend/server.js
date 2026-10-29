@@ -189,7 +189,29 @@ app.post("/api/ai/generate-events", authenticateGoogle, async (req, res) => {
     }
 
     try {
-        
+        const calendar = google.calendar({ version: "v3", auth: req.authClient });
+        const rawEvents = await calendar.events.list({
+            calendarId: "primary",
+            timeMin: new Date().toISOString(),
+            maxResults: 20,
+            singleEvents: true,
+            orderBy: "startTime"
+        });  
+
+        const events = rawEvents.data.items || [];
+        const oneEvent = null;
+        let busySchedule = "";
+        if (events.length > 0) {
+            for (const event of events) {
+                busySchedule += event.summary || "No Summary";
+                busySchedule += ": From "
+                busySchedule += event.start.dateTime || event.start.date || "";
+                busySchedule += " to "
+                busySchedule += event.end.dateTime || event.end.date || "";
+                busySchedule += "\n"
+            }
+        }
+
         const systemInstruction = `You are an expert productivity assistant and scheduling specialist. Your task is to break down the user's goal into a realistic sequence of calendar events, ensuring everything fits before the given deadline.
 
             SECURITY RULES:
@@ -209,6 +231,9 @@ app.post("/api/ai/generate-events", authenticateGoogle, async (req, res) => {
                         They need to spend: ${time} hours
                         Deadline: ${deadline}
                         Current Date: ${new Date().toISOString()}
+
+                        Existing Calendar Events (DO NOT overlap with these):
+                        ${busySchedule}
                         `;
 
         const response = await ai.models.generateContent({
@@ -242,7 +267,6 @@ app.post("/api/ai/generate-events", authenticateGoogle, async (req, res) => {
             console.error("Error parsing AI response:", error);
             return res.status(500).send("Invalid response format from AI :c");
         }
-        const calendar = google.calendar({ version: "v3", auth: req.authClient });
         const createdEvents = []
         
         for (const item of schedule) {
