@@ -106,7 +106,7 @@ app.get("/api/auth/logout", (req, res) => {
     res.redirect("/");
 });
 
-app.post("/api/calendar/events", authenticateGoogle, async (req, res) => {
+app.get("/api/calendar/events", authenticateGoogle, async (req, res) => {
     try {
         const calendar = google.calendar({ version: "v3", auth: req.authClient });
         const response = await calendar.events.list({
@@ -289,6 +289,8 @@ app.post("/api/ai/generate-events", authenticateGoogle, async (req, res) => {
             createdEvents.push({
                 summary: item.summary,
                 link: calendarResponse.data.htmlLink,
+                start: calendarResponse.data.start,
+                end: calendarResponse.data.end
             });
         }  
 

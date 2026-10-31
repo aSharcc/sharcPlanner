@@ -25,15 +25,21 @@
 
             <fieldset> <!--Switch for selecting which form to use-->
                 <label for="ai-switch">
-                    <input id="ai-switch" role="switch" type="checkbox">
+                    <input id="ai-switch" role="switch" type="checkbox"> 
                     AI Mode 
                 </label>
             </fieldset> 
+            <details>
+                <summary id="theme-title">Weekly Theme !!</summary>
+                <div id="weekly-theme" style="padding-bottom: 1rem;"> 
+                    <p id="theme-description"></p>
+                    <button id="use-theme" class="outline">Use the Theme in AI Mode</button>
+                </div>
+            </details>
 
-            <div id="weekly-theme" style="padding-bottom: 1rem;">
-                <h3 id="theme-title">Weekly Theme !!</h3>
-                <p id="theme-description"></p>
-                <button id="use-theme" class="outline">Use the Theme in AI Mode</button>
+            <div id="results-div" hidden>
+                <h3>Generated Items</h3>
+                <ul id="generated-results"></ul>
             </div>
             
             <form id="manual-form"> <!--Manual form (shown by default)-->
@@ -102,6 +108,8 @@
                 let flashTimeout = null;
                 const loginButton = document.getElementById("login-button");
                 const today = new Date();
+                const resultsList = document.getElementById("generated-results");
+                const resultsDiv = document.getElementById("results-div");
 
                 function updateFormVisability() {
                     const isAI = aiSwitch.checked;
@@ -151,7 +159,7 @@
                         const theme = await response.json();
 
                         if (theme && theme.title && theme.description) {
-                            document.getElementById("theme-title").textContent = theme.title;
+                            document.getElementById("theme-title").textContent = "Weekly Theme: " + theme.title + "      (Click me)";
                             document.getElementById("theme-description").textContent = theme.description;
 
                             document.getElementById("use-theme").addEventListener("click", () => {
@@ -176,6 +184,8 @@
                 updateFormVisability();
                 aiSwitch.addEventListener("change", updateFormVisability); 
                 fetchWeeklyTheme();
+                resultsDiv.hidden = true;
+
 
                 document.querySelectorAll("input[type=date]").forEach(element => {
                     element.value = today.toLocaleDateString('sv-SE');
@@ -222,11 +232,20 @@
                                 headers: { "Content-Type": "application/json" },
                                 body: JSON.stringify(payload)
                             });
+
+                            const result = await response.json()
  
                             if (response.ok) {
                                 console.log("Manual event added successfully"); 
                                 form.reset();
                                 showFlash("Yippie event created", "good");
+                                resultsList.innerHTML = "";
+                                let resultsHTML = "";
+                                resultsHTML += (`<li><strong>${result.event.summary}: </strong><a href="${result.event.htmlLink}">Link</a><br>
+                                                    <strong>Start: </strong>${result.event.start.dateTime}<br>
+                                                    <strong>End: </strong>${result.event.end.dateTime}</li>`);
+                                resultsList.innerHTML = resultsHTML;
+                                resultsDiv.hidden = false;
                             } else {
                                 console.log("Manual event failed: ", response.status);
                                 if (response.status === 401) {
@@ -263,10 +282,23 @@
                                 body: JSON.stringify(payload)
                             });
 
+                            const result = await response.json();
+
                             if (response.ok) {
-                                console.log("ai plan added successfully");
+                                if (result.schedule.length === 0) {
+                                    showFlash("No results created", "bad");
+                                    return;
+                                }
+                                console.log("ai plan added successfully", result);
                                 form.reset();
                                 showFlash("Yippie ai plan created", "good");
+                                resultsList.innerHTML = "";
+                                let resultsHTML = "";
+                                for (event of result.schedule)resultsHTML += (`<li><strong>${event.summary}: </strong><a href="${event.link}">Link</a><br>
+                                                    <strong>Start: </strong>${new Date(event.start.dateTime).toLocaleString([], { timeStyle: "short", dateStyle: "medium" })}<br>
+                                                    <strong>End: </strong>${new Date(event.end.dateTime).toLocaleString([], { timeStyle: "short", dateStyle: "medium" })}</li>`);
+                                resultsList.innerHTML = resultsHTML;
+                                resultsDiv.hidden = false;
                             } else {
                                 console.log("AI plan failed: ", response.status);
                                 if (response.status === 401) {
