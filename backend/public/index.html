@@ -96,6 +96,17 @@
                 <button type="submit">Generate Schedule</button>
             </form>
 
+            <details>
+                <summary>User Feedback</summary>
+                <form id="feedback-form">
+                    <label for="feedback-message">
+                        Feedback Message
+                        <textarea id="feedback-message" name="message"></textarea>
+                    </label>
+                    <button type="submit">Submit Feedback</button>
+                </form>
+            </details>
+
             <footer>
                 <a href="/privacy.html" target="_blank" >Privacy Policy / TOS / README</a>
             </footer>
@@ -106,7 +117,7 @@
                 const aiForm = document.getElementById("ai-form");
                 const flashBox = document.getElementById("flash-message");
                 let flashTimeout = null;
-                const loginButton = document.getElementById("login-button");
+                const loginButton = document.getElementById("login-button"); 
                 const today = new Date();
                 const resultsList = document.getElementById("generated-results");
                 const resultsDiv = document.getElementById("results-div");
@@ -266,6 +277,7 @@
                                 showFlash("Deadline must be in the future", "bad");
                                 return;
                             }
+                            
 
                             const payload = {
                                 goal: data["ai-goal"],
@@ -276,10 +288,10 @@
                             button.disabled = true;
                             button.innerText = "Generating Schedule....";
                             
-                            const response = await fetch("/api/ai/generate-events", {
+                            const response = await fetch("/api/ai/generate-events", { 
                                 method: "POST",
                                 headers: { "Content-Type": "application/json" },
-                                body: JSON.stringify(payload)
+                                body: JSON.stringify(payload) 
                             });
 
                             const result = await response.json();
@@ -287,30 +299,55 @@
                             if (response.ok) {
                                 if (result.schedule.length === 0) {
                                     showFlash("No results created", "bad");
-                                    return;
+                                    return;  
                                 }
-                                console.log("ai plan added successfully", result);
+                                console.log("ai plan added successfully", result); 
                                 form.reset();
-                                showFlash("Yippie ai plan created", "good");
+                                showFlash("Yippie ai plan created", "good"); 
                                 resultsList.innerHTML = "";
                                 let resultsHTML = "";
-                                for (event of result.schedule)resultsHTML += (`<li><strong>${event.summary}: </strong><a href="${event.link}">Link</a><br>
+                                for (event of result.schedule) { resultsHTML += (`<li><strong>${event.summary}: </strong><a href="${event.link}">Link</a><br>
                                                     <strong>Start: </strong>${new Date(event.start.dateTime).toLocaleString([], { timeStyle: "short", dateStyle: "medium" })}<br>
-                                                    <strong>End: </strong>${new Date(event.end.dateTime).toLocaleString([], { timeStyle: "short", dateStyle: "medium" })}</li>`);
+                                                    <strong>End: </strong>${new Date(event.end.dateTime).toLocaleString([], { timeStyle: "short", dateStyle: "medium" })}</li>`);}
                                 resultsList.innerHTML = resultsHTML;
                                 resultsDiv.hidden = false;
                             } else {
                                 console.log("AI plan failed: ", response.status);
                                 if (response.status === 401) {
                                     showFlash("Please log in first !!", "bad");
+                                    return; 
+                                }
+                                if (response.status === 429) {
+                                    const errorData = await response.json();
+                                    showFlash(errorData.error, "bad");
                                     return;
                                 }
                                 showFlash(`Failed to create ai plan (Status: ${response.status})`, "bad");
                             }
+                        } else if (form.id === "feedback-form") {
+                            const message = data.message;
+                            const response = await fetch("/api/feedback", {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ message }) 
+                            });
+
+                            if (response.ok) {
+                                console.log("feedback submitted successfully");
+                                form.reset();
+                                showFlash("Yippie feedback submitted successfully", "good");
+                            } else {
+                                console.log("feedback submission failed: ", response.status);
+                                if (response.status === 401) {
+                                    showFlash("Please log in first !!", "bad");
+                                    return;
+                                }
+                                showFlash(`Failed to submit feedback (Status: ${response.status})`, "bad");
+                            }
                         }
                     } catch (error) {
                         console.error("sumbission error: ", error);
-                        showFlash(`:c error: ${error}`, "bad");
+                        showFlash(`:c error: ${error}`, "bad"); 
                     } finally {
                         button.disabled = false;
                         button.innerText = originalText;

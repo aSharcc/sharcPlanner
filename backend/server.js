@@ -106,7 +106,7 @@ app.get("/api/auth/logout", (req, res) => {
     res.redirect("/");
 });
 
-app.get("/api/calendar/events", authenticateGoogle, async (req, res) => {
+app.post("/api/calendar/events", authenticateGoogle, async (req, res) => {
     try {
         const calendar = google.calendar({ version: "v3", auth: req.authClient });
         const response = await calendar.events.list({
@@ -182,6 +182,20 @@ app.post("/api/calendar/add-event", authenticateGoogle, async (req, res) => {
 });
 
 app.post("/api/ai/generate-events", authenticateGoogle, async (req, res) => {
+    const todayString = new Date().toDateString();
+    if (!req.session.aiUsage || req.session.aiUsage.date !== todayString) {
+        req.session.aiUsage = { count: 0, date: todayString };
+    }
+
+    const dailyLimit = 10;
+
+    if (req.session.aiUsage.count > dailyLimit) {
+        return res.status(429).json({ error: "Daily AI limit reached :c, try again tomorrow !!" });
+    }
+
+    req.session.aiUsage.count += 1;
+    req.session.save();
+
     const { goal, time, deadline } = req.body;
 
     if (!goal || !time || !deadline) {
@@ -324,6 +338,20 @@ app.get("/api/themes/current", async (req, res) => {
     } catch (error) {
         console.error("Error fetching current theme: ", error);
         res.status(500).send("Failed to fetch current theme :c");
+    }
+});
+
+app.post("/api/feedback", authenticateGoogle, async  (req, res) => {
+    const { message } = req.body;
+    if (!message) {
+        return res.status(400).send("Feedback message cannot be empty !!")
+    }
+    try {
+        await pool.query(`INSERT INTO feedback (message, session_id) VALUES ($1, $2)`, [message, req.sessionID]);
+        res.json({ message: "Thank you for your feedback !! c:" });
+    } catch (error) {
+        console.error("Error saving feedback: ", error);
+        res.status(500).send("Failed to save feedback :c");
     }
 });
 

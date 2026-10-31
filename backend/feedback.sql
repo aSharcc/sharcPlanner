@@ -1,0 +1,6 @@
+ALTER TABLE feedback (
+	id SERIAL PRIMARY KEY,
+	message TEXT NOT NULL,
+	datetime TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+	session_id TEXT NOT NULL
+);
