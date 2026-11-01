@@ -98,13 +98,14 @@
                         </label>
                     </div>
                     <button type="submit">Generate Schedule</button>
+                    <small><p>Your inputs will be taken litterally to prevent injections.</p></small>
                 </form>
             </div>
 
             <div id="view-container" hidden>
                 <h3>Upcoming Calendar Events</h3>
                 <button id="fetch-events-button">Refresh Events</button>
-                <ul id="fetched-events-list">
+                <ul id="fetched-events-list" style="padding: 1rem;">
                     <li>Loading Events...</li>
                 </ul>
             </div>
@@ -213,6 +214,12 @@
 
                         const result = await response.json();
 
+                        if (result.message === "No events found. :c") {
+                            showFlash("No events found in primary calendar", "bad");
+                            fetchedEventsList.innerHTML = `<li>No events found in primary calendar</li>`
+                            return;
+                        }
+
                         fetchedEventsList.innerHTML = "";
                         let resultsHTML = "";
                         for (event of result) { resultsHTML += (`<li><strong>${event.summary}: </strong><a href="${event.link}">Link</a><br>
@@ -312,6 +319,7 @@
                             if (response.status === 401) {
                                     showFlash("Please log in first !!", "bad");
                                     return;
+                            }
 
                             const result = await response.json()
  
@@ -322,18 +330,22 @@
                                 resultsList.innerHTML = "";
                                 let resultsHTML = "";
                                 resultsHTML += (`<li><strong>${result.event.summary}: </strong><a href="${result.event.htmlLink}">Link</a><br>
-                                                    <strong>Start: </strong>${result.event.start.dateTime}<br>
-                                                    <strong>End: </strong>${result.event.end.dateTime}</li>`);
+                                                    <strong>Start: </strong>${new Date(result.event.start.dateTime).toLocaleString([], { timeStyle: "short", dateStyle: "medium" })}<br>
+                                                    <strong>End: </strong>${new Date(result.event.end.dateTime).toLocaleString([], { timeStyle: "short", dateStyle: "medium" })}</li>`);
                                 resultsList.innerHTML = resultsHTML;
                                 resultsDiv.hidden = false;
                             } else {
                                 console.log("Manual event failed: ", response.status);
-                                }
                                 showFlash(`Failed to create event (Status: ${response.status})`, "bad");
                             }
                         } else if (form.id === "ai-form") {
                             if (!data["ai-goal"] || !data["ai-deadline-date"] || !data["ai-time"]) {
                                 showFlash("Please fill all fields", "bad");
+                                return;
+                            }
+
+                            if (data["ai-time"] <= 0) {
+                                showFlash("Time cannot be less than or equal to 0, obviously", "bad");
                                 return;
                             }
 
