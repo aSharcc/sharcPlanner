@@ -7,6 +7,9 @@ import pg from "pg";
 import connectPgSimple from "connect-pg-simple";
 
 const app = express(); // start the webapp with express
+if (process.env.NODE_ENV === "production") {
+    app.set("trust proxy", 1);
+}
 const PORT = process.env.PORT || 8000; // set the port to what's in .env else 8000
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 const { Pool } = pg;
@@ -39,12 +42,10 @@ app.use(session({
     cookie: {
         secure: process.env.NODE_ENV === "production",
         httpOnly: true,
+        sameSite: "lax",    
         maxAge: 1000 * 60 * 60 * 24 * 30 // 30 days
     }
 }));
-if (process.env.NODE_ENV === "production") {
-    app.set("trust proxy", 1);
-}
 
 function authenticateGoogle(req, res, next) {
     if (!req.session.userTokens) {
