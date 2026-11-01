@@ -95,7 +95,7 @@
                         <label for="ai-deadline-time">
                             Deadline Time
                             <input type="time" value="00:00" id="ai-deadline-time" name="ai-deadline-time">
-                        </label>
+                        </label> 
                     </div>
                     <button type="submit">Generate Schedule</button>
                     <small><p>Your inputs will be taken litterally to prevent injections.</p></small>
@@ -104,14 +104,14 @@
 
             <div id="view-container" hidden>
                 <h3>Upcoming Calendar Events</h3>
-                <button id="fetch-events-button">Refresh Events</button>
+                <button id="fetch-events-button">Refresh Events</button> 
                 <ul id="fetched-events-list" style="padding: 1rem;">
                     <li>Loading Events...</li>
-                </ul>
+                </ul> 
             </div>
 
             <details>
-                <summary>User Feedback</summary>
+                <summary>User Feedback. Current Focus: Timezones</summary>
                 <form id="feedback-form">
                     <label for="feedback-message">
                         Feedback Message
@@ -202,7 +202,6 @@
                     fetchedEventsList.innerHTML = `<li>Loading events...</li>`
                     try {
                         const response = await fetch("/api/calendar/events", {
-                            method: "POST",
                             headers: { "Content-Type": "application/json" }
                         });
 
@@ -220,7 +219,7 @@
                             return;
                         }
 
-                        fetchedEventsList.innerHTML = "";
+                        fetchedEventsList.innerHTML = ""; 
                         let resultsHTML = "";
                         for (event of result) { resultsHTML += (`<li><strong>${event.summary}: </strong><a href="${event.link}">Link</a><br>
                                             <strong>Start: </strong>${new Date(event.start).toLocaleString([], { timeStyle: "short", dateStyle: "medium" })}<br>

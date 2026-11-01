@@ -1,0 +1,7 @@
+CREATE TABLE IF NOT EXISTS session (
+    sid VARCHAR PRIMARY KEY,
+    sess JSON NOT NULL,
+    expire TIMESTAMP(6) WITHOUT TIME ZONE NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS "IDX_session_expire" ON session (expire ASC);
