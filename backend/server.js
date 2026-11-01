@@ -96,13 +96,18 @@ app.get("/api/auth/callback", async (req, res) => {
         const { tokens } = await auth.getToken(code);
 
         req.session.userTokens = tokens;
-        req.session.save();
+        req.session.save((err) => {
+            if (err) {
+                console.error("Error saving session: ", err);
+                return res.status(500).send("Server error during login :c");
+            }
 
-        console.log("Successfully authenticated !! woop woop anyways tokens:");
-        console.log("Access token: ", tokens.access_token);
-        console.log("Refresh token: ", tokens.refresh_token);
+            console.log("Successfully authenticated !! woop woop anyways tokens:");
+            console.log("Access token: ", tokens.access_token);
+            console.log("Refresh token: ", tokens.refresh_token);
 
-        res.redirect("/");
+            res.redirect("/");
+        });
     } catch (error) {
         console.error("Error exchanging token: ", error);
         res.status(500).json({ error: "Server error during authentication :c" });
