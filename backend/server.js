@@ -106,7 +106,7 @@ app.get("/api/auth/logout", (req, res) => {
     res.redirect("/");
 });
 
-app.post("/api/calendar/events", authenticateGoogle, async (req, res) => {
+app.get("/api/calendar/events", authenticateGoogle, async (req, res) => {
     try {
         const calendar = google.calendar({ version: "v3", auth: req.authClient });
         const response = await calendar.events.list({
@@ -125,6 +125,7 @@ app.post("/api/calendar/events", authenticateGoogle, async (req, res) => {
 
         const formattedEvents = events.map(event =>({
             summary: event.summary || "No Name !!",
+            link: event.htmlLink,
             start: event.start.dateTime || event.start.date,
             end: event.end.dateTime || event.end.date
         })); 
@@ -189,7 +190,7 @@ app.post("/api/ai/generate-events", authenticateGoogle, async (req, res) => {
 
     const dailyLimit = 10;
 
-    if (req.session.aiUsage.count > dailyLimit) {
+    if (req.session.aiUsage.count >= dailyLimit) {
         return res.status(429).json({ error: "Daily AI limit reached :c, try again tomorrow !!" });
     }
 

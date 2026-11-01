@@ -18,83 +18,96 @@
                     <li><a href="/api/auth/google" id="login-button" target="_self" role="button" class="outline">Connect to Google Calendar</a></li>
                 </ul>
             </nav>
+            <nav>
+                <button id="tab-create" class="contrast">Create Events</button>
+                <button id="tab-view" class="outline">View My Events</button>
+            </nav>
             <hr>
         </header> 
         <main class="container">
             <div id="flash-message" hidden style="border-left: 0.25rem solid; padding: 1rem; border-radius: var(--pico-border-radius); margin-bottom: var(--pico-spacing);"></div>
+            <div id="create-container">
+                <fieldset> <!--Switch for selecting which form to use-->
+                    <label for="ai-switch">
+                        <input id="ai-switch" role="switch" type="checkbox"> 
+                        AI Mode 
+                    </label>
+                </fieldset> 
+                <details>
+                    <summary id="theme-title">Weekly Theme !!</summary>
+                    <div id="weekly-theme" style="padding-bottom: 1rem;"> 
+                        <p id="theme-description"></p>
+                        <button id="use-theme" class="outline">Use the Theme in AI Mode</button>
+                    </div>
+                </details>
 
-            <fieldset> <!--Switch for selecting which form to use-->
-                <label for="ai-switch">
-                    <input id="ai-switch" role="switch" type="checkbox"> 
-                    AI Mode 
-                </label>
-            </fieldset> 
-            <details>
-                <summary id="theme-title">Weekly Theme !!</summary>
-                <div id="weekly-theme" style="padding-bottom: 1rem;"> 
-                    <p id="theme-description"></p>
-                    <button id="use-theme" class="outline">Use the Theme in AI Mode</button>
+                <div id="results-div" hidden>
+                    <h3>Generated Items</h3>
+                    <ul id="generated-results"></ul>
                 </div>
-            </details>
+                
+                <form id="manual-form"> <!--Manual form (shown by default)-->
+                    <label for="manual-summary">
+                        Title
+                        <input id="manual-summary" name="manual-summary" type="text" required>
+                    </label>
+                    <label for="manual-description">   
+                        Description
+                        <textarea id="manual-description" name="manual-description"></textarea>
+                    </label>
+                    <div class="grid">
+                        <label for="manual-start-date"> 
+                            Start Date
+                            <input type="date" id="manual-start-date" name="manual-start-date" required>
+                        </label>
+                        <label for="manual-start-time">
+                            Start Time
+                            <input type="time" value="00:00" id="manual-start-time" name="manual-start-time">
+                        </label>
+                    </div>
+                    <div class="grid">
+                        <label for="manual-end-date">
+                            End Date
+                            <input type="date" id="manual-end-date" name="manual-end-date" required>
+                        </label>
+                        <label for="manual-end-time">
+                            End Time
+                            <input type="time" value="00:00" id="manual-end-time" name="manual-end-time">
+                        </label>
+                    </div>
+                    <button type="submit">Add Event</button>
+                </form>
 
-            <div id="results-div" hidden>
-                <h3>Generated Items</h3>
-                <ul id="generated-results"></ul>
+                <form id="ai-form" hidden> <!--AI form (hidden by default)-->
+                        <label for="ai-goal">
+                            Goal
+                            <input id="ai-goal" name="ai-goal" type="text" required>
+                        </label>
+                        <label for="ai-time">
+                            Time (Hours)
+                            <input id="ai-time" name="ai-time" type="number" min="0.1" step="any" required>
+                        </label>
+                    <div class="grid">
+                        <label for="ai-deadline-date">
+                            Deadline Date
+                            <input type="date" id="ai-deadline-date" name="ai-deadline-date" required>
+                        </label>
+                        <label for="ai-deadline-time">
+                            Deadline Time
+                            <input type="time" value="00:00" id="ai-deadline-time" name="ai-deadline-time">
+                        </label>
+                    </div>
+                    <button type="submit">Generate Schedule</button>
+                </form>
             </div>
-            
-            <form id="manual-form"> <!--Manual form (shown by default)-->
-                <label for="manual-summary">
-                    Title
-                    <input id="manual-summary" name="manual-summary" type="text" required>
-                </label>
-                <label for="manual-description">   
-                    Description
-                    <textarea id="manual-description" name="manual-description"></textarea>
-                </label>
-                <div class="grid">
-                    <label for="manual-start-date"> 
-                        Start Date
-                        <input type="date" id="manual-start-date" name="manual-start-date" required>
-                    </label>
-                    <label for="manual-start-time">
-                        Start Time
-                        <input type="time" value="00:00" id="manual-start-time" name="manual-start-time">
-                    </label>
-                </div>
-                <div class="grid">
-                    <label for="manual-end-date">
-                        End Date
-                        <input type="date" id="manual-end-date" name="manual-end-date" required>
-                    </label>
-                    <label for="manual-end-time">
-                        End Time
-                        <input type="time" value="00:00" id="manual-end-time" name="manual-end-time">
-                    </label>
-                </div>
-                <button type="submit">Add Event</button>
-            </form>
 
-            <form id="ai-form" hidden> <!--AI form (hidden by default)-->
-                    <label for="ai-goal">
-                        Goal
-                        <input id="ai-goal" name="ai-goal" type="text" required>
-                    </label>
-                    <label for="ai-time">
-                        Time (Hours)
-                        <input id="ai-time" name="ai-time" type="number" min="0.1" step="any" required>
-                    </label>
-                <div class="grid">
-                    <label for="ai-deadline-date">
-                        Deadline Date
-                        <input type="date" id="ai-deadline-date" name="ai-deadline-date" required>
-                    </label>
-                    <label for="ai-deadline-time">
-                        Deadline Time
-                        <input type="time" value="00:00" id="ai-deadline-time" name="ai-deadline-time">
-                    </label>
-                </div>
-                <button type="submit">Generate Schedule</button>
-            </form>
+            <div id="view-container" hidden>
+                <h3>Upcoming Calendar Events</h3>
+                <button id="fetch-events-button">Refresh Events</button>
+                <ul id="fetched-events-list">
+                    <li>Loading Events...</li>
+                </ul>
+            </div>
 
             <details>
                 <summary>User Feedback</summary>
@@ -121,12 +134,33 @@
                 const today = new Date();
                 const resultsList = document.getElementById("generated-results");
                 const resultsDiv = document.getElementById("results-div");
+                const viewContainer = document.getElementById("view-container");
+                const createContainer = document.getElementById("create-container");
+                const tabCreate = document.getElementById("tab-create");
+                const tabView = document.getElementById("tab-view");
+                const fetchedEventsList = document.getElementById("fetched-events-list");
+                const fetchEventsButton = document.getElementById("fetch-events-button");
 
                 function updateFormVisability() {
                     const isAI = aiSwitch.checked;
                     manualForm.hidden = isAI;
                     aiForm.hidden = !isAI;
                     flashBox.hidden = true;
+                }
+
+                function switchTab(mode) {
+                    if (mode === "create") {
+                        createContainer.hidden = false;
+                        viewContainer.hidden = true;
+                        tabView.className = "outline";
+                        tabCreate.className = "contrast";
+                    } else {
+                        createContainer.hidden = true;
+                        viewContainer.hidden = false;
+                        tabView.className = "contrast";
+                        tabCreate.className = "outline";
+                        getUserEvents();
+                    }
                 }
 
                 function showFlash(message, type) {
@@ -157,10 +191,37 @@
                             loginButton.innerText = "Connect to Google Calendar";
                             loginButton.style.borderColor = "red";
                             loginButton.href = "/api/auth/google";
-                            
                         }
                     } catch (error) {
                         console.log("Could not get login status: ", error);
+                    }
+                }
+
+                async function getUserEvents() {
+                    fetchedEventsList.innerHTML = `<li>Loading events...</li>`
+                    try {
+                        const response = await fetch("/api/calendar/events", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" }
+                        });
+
+                        if (response.status === 401) {
+                            fetchedEventsList.innerHTML = `<li>Please login first !!</li>`;
+                            showFlash("Failed: Please login first !!" , "bad");
+                            return;
+                        }
+
+                        const result = await response.json();
+
+                        fetchedEventsList.innerHTML = "";
+                        let resultsHTML = "";
+                        for (event of result) { resultsHTML += (`<li><strong>${event.summary}: </strong><a href="${event.link}">Link</a><br>
+                                            <strong>Start: </strong>${new Date(event.start).toLocaleString([], { timeStyle: "short", dateStyle: "medium" })}<br>
+                                            <strong>End: </strong>${new Date(event.end).toLocaleString([], { timeStyle: "short", dateStyle: "medium" })}</li>`);}
+                        fetchedEventsList.innerHTML = resultsHTML;
+                    } catch (error) {
+                        console.log("Error fetching events", error);
+                        showFlash("Failed to get user events", "bad");  
                     }
                 }
 
@@ -203,6 +264,10 @@
                     element.min = today.toISOString().split("T")[0];
                 });
 
+                tabCreate.addEventListener("click", () => switchTab("create"));
+                tabView.addEventListener("click", () => switchTab("view"));
+                fetchEventsButton.addEventListener("click", getUserEvents);
+
                 document.addEventListener("submit", async (event) => {
                     event.preventDefault();
 
@@ -244,6 +309,10 @@
                                 body: JSON.stringify(payload)
                             });
 
+                            if (response.status === 401) {
+                                    showFlash("Please log in first !!", "bad");
+                                    return;
+
                             const result = await response.json()
  
                             if (response.ok) {
@@ -259,9 +328,6 @@
                                 resultsDiv.hidden = false;
                             } else {
                                 console.log("Manual event failed: ", response.status);
-                                if (response.status === 401) {
-                                    showFlash("Please log in first !!", "bad");
-                                    return;
                                 }
                                 showFlash(`Failed to create event (Status: ${response.status})`, "bad");
                             }
@@ -294,6 +360,11 @@
                                 body: JSON.stringify(payload) 
                             });
 
+                            if (response.status === 401) {
+                                    showFlash("Please log in first !!", "bad");
+                                    return; 
+                            }
+
                             const result = await response.json();
 
                             if (response.ok) {
@@ -313,13 +384,8 @@
                                 resultsDiv.hidden = false;
                             } else {
                                 console.log("AI plan failed: ", response.status);
-                                if (response.status === 401) {
-                                    showFlash("Please log in first !!", "bad");
-                                    return; 
-                                }
                                 if (response.status === 429) {
-                                    const errorData = await response.json();
-                                    showFlash(errorData.error, "bad");
+                                    showFlash(result.error, "bad");
                                     return;
                                 }
                                 showFlash(`Failed to create ai plan (Status: ${response.status})`, "bad");
