@@ -1,3 +1,4 @@
+![Image of Webapp main page](homepage.png)
 # sharcPlanner (rawr)
 An AI powered task schedeuling assitant that breaks down goals into smaller, achievable steps and automatically syncs them to your google calendar
 
