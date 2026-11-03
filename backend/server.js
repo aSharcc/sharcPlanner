@@ -5,6 +5,7 @@ import { GoogleGenAI, Type } from "@google/genai";
 import session from "express-session";
 import pg from "pg";
 import connectPgSimple from "connect-pg-simple";
+import crypto from "crypto";
 
 const app = express(); // start the webapp with express
 if (process.env.NODE_ENV === "production") {
@@ -25,7 +26,10 @@ const auth = new google.auth.OAuth2({
     redirectUri: process.env.GOOGLE_REDIRECT_URI
 });
 
-const SCOPES = ["https://www.googleapis.com/auth/calendar.events"]; // read and write calendar events
+const SCOPES = ["https://www.googleapis.com/auth/calendar.events",
+    "https://www.googleapis.com/auth/userinfo.email",
+    "https://www.googleapis.com/auth/userinfo.profile"
+]; // read and write calendar events
 
 app.use(express.json()); // sets middleware to convert JSON into js objects
 app.use(express.urlencoded({ extended: true }));
@@ -95,7 +99,25 @@ app.get("/api/auth/callback", async (req, res) => {
     try {
         const { tokens } = await auth.getToken(code);
 
+        const authClient = new google.auth.OAuth2({
+            clientId: process.env.GOOGLE_CLIENT_ID,
+            clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+            redirectUri: process.env.GOOGLE_REDIRECT_URI
+        });
+        authClient.setCredentials(tokens);
+
+        const OAuth2 = google.oauth2({version: "v2", auth: authClient});
+        const userInfo = await OAuth2.userinfo.get();
+
+        const { id: googleId, email, name } = userInfo.data;
+
+        console.log(userInfo)
+
+        const result = await pool.query(`INSERT INTO users (google_id, email, name) VALUES($1, $2, $3) ON CONFLICT (google_id) DO UPDATE SET email = EXCLUDED.email, name = EXCLUDED.name RETURNING id`, [googleId, email, name]);
+        const userId = result.rows[0].id;
+
         req.session.userTokens = tokens;
+        req.session.userId = userId;
         req.session.save((err) => {
             if (err) {
                 console.error("Error saving session: ", err);
@@ -367,6 +389,58 @@ app.post("/api/feedback", authenticateGoogle, async  (req, res) => {
         console.error("Error saving feedback: ", error);
         res.status(500).send("Failed to save feedback :c");
     }
+});
+
+app.post("/api/group/create", authenticateGoogle, async (req, res) => {
+    const { title, description, duration, deadline } = req.body;
+    if (!title || !duration || !deadline) {
+        return res.status(400).send("Missing fields :c");
+    }
+    const eventId = crypto.randomUUID();
+    const creator_id = req.session.userId;
+
+    try {
+        await pool.query(`INSERT INTO group_events (title, description, duration, deadline, creator_id, finalised) VALUES($1, $2, $3, $4, $5, false)`, [title, description, duration, deadline, creator_id]);
+        res.json({ message: "Group event created !!"} )
+    } catch (error) {
+        console.error(":c Error creating group event: ", error);
+        res.status(500).send(":c Failed to generate group event :c");
+    }
+});
+
+app.get("/api/group/:id", async (req, res) => {
+    const eventId = req.params.id;
+    try {
+        const result = await pool.query(`SELECT * FROM group_events WHERE id = $1`, [eventId]);
+        if (result.rows.length === 0) {
+            return res.status(404).json({ message: "No group events found for that ID" });
+        }
+        res.json(result.rows[0]);
+    } catch (error) {
+        console.error(":c Error getting group event: ", error);
+        res.status(500).send(":c Failed to get group event :c");
+    }
+});
+
+app.post("/api/group/:id/submit", async (req, res) => {
+    const eventId = req.params.id;
+    const { participant_name, available_slots } = req.body;
+    try {
+        await pool.query(`INSERT INTO group_availability (participant_name, available_slots, group_event_id) VALUES($1, $2, $3)`, [JSON.stringify(available_slots), available_slots, eventId]);
+        res.json({ message: "Availability Submitted !!"} )
+    } catch (error) {
+        console.error(":c Error submitting availability group event: ", error);
+        res.status(500).send(":c Failed to submit availability for group event :c");
+    }
+});
+
+app.post("/api/group/:id/finalize", authenticateGoogle, async (req, res) => {
+    const eventId = req.params.id;
+});
+
+app.get("/api/auth/me", authenticateGoogle, async (req, res) => {
+    const OAuth2 = google.oauth2({version: "v2", auth: req.authClient});
+    const userInfo = await OAuth2.userinfo.get();
 });
 
 app.listen(PORT, () => {  

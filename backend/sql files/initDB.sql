@@ -6,6 +6,14 @@ CREATE TABLE IF NOT EXISTS session (
 
 CREATE INDEX IF NOT EXISTS "IDX_session_expire" ON session (expire ASC);
 
+CREATE TABLE IF NOT EXISTS users (
+    id SERIAL PRIMARY KEY,
+    google_id TEXT UNIQUE NOT NULL,
+    email TEXT,
+    name TEXT,
+    date_created TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE TABLE IF NOT EXISTS feedback (
     id SERIAL PRIMARY KEY,
     message TEXT NOT NULL,
@@ -22,20 +30,19 @@ CREATE TABLE IF NOT EXISTS weekly_themes (
 );
 
 CREATE TABLE IF NOT EXISTS group_events (
-    id SERIAL PRIMARY KEY,
-    creator_id TEXT NOT NULL,
+    id UUID PRIMARY KEY,
+    creator_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
     title TEXT NOT NULL,
     description TEXT,
     duration NUMERIC NOT NULL,
     deadline TIMESTAMP NOT NULL,
-    finalised BOOLEAN NOT NULL,
+    finalised BOOLEAN NOT NULL DEFAULT FALSE,
     date_created TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
+); 
 
 CREATE TABLE IF NOT EXISTS group_availability (
     id SERIAL PRIMARY KEY,
-    group_event_id INTEGER REFERENCES group_events(id) ON DELETE CASCADE,
+    group_event_id UUID REFERENCES group_events(id) ON DELETE CASCADE,
     participant_name TEXT NOT NULL,
     available_slots JSONB
-);  
-
+);

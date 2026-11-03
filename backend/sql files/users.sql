@@ -1,0 +1,7 @@
+CREATE TABLE IF NOT EXISTS users (
+    id SERIAL PRIMARY KEY,
+    google_id TEXT UNIQUE NOT NULL,
+    email TEXT,
+    name TEXT,
+    date_created TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
