@@ -111,7 +111,7 @@ app.get("/api/auth/callback", async (req, res) => {
 
         const { id: googleId, email, name } = userInfo.data;
 
-        console.log(userInfo)
+        console.log(userInfo);
 
         const result = await pool.query(`INSERT INTO users (google_id, email, name) VALUES($1, $2, $3) ON CONFLICT (google_id) DO UPDATE SET email = EXCLUDED.email, name = EXCLUDED.name RETURNING id`, [googleId, email, name]);
         const userId = result.rows[0].id;
