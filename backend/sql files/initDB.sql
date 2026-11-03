@@ -20,3 +20,22 @@ CREATE TABLE IF NOT EXISTS weekly_themes (
     description TEXT,
     suggested_hours NUMERIC DEFAULT 2.0
 );
+
+CREATE TABLE IF NOT EXISTS group_events (
+    id SERIAL PRIMARY KEY,
+    creator_id TEXT NOT NULL,
+    title TEXT NOT NULL,
+    description TEXT,
+    duration NUMERIC NOT NULL,
+    deadline TIMESTAMP NOT NULL,
+    finalised BOOLEAN NOT NULL,
+    date_created TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS group_availability (
+    id SERIAL PRIMARY KEY,
+    group_event_id INTEGER REFERENCES group_events(id) ON DELETE CASCADE,
+    participant_name TEXT NOT NULL,
+    available_slots JSONB
+);  
+
