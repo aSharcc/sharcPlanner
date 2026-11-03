@@ -30,13 +30,14 @@ CREATE TABLE IF NOT EXISTS weekly_themes (
 );
 
 CREATE TABLE IF NOT EXISTS group_events (
-    id UUID PRIMARY KEY,
+    id UUID PRIMARY KEY gen_random_uuid(),
     creator_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
     title TEXT NOT NULL,
     description TEXT,
     duration NUMERIC NOT NULL,
     deadline TIMESTAMP NOT NULL,
     finalised BOOLEAN NOT NULL DEFAULT FALSE,
+    finalised_slot JSONB,
     date_created TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ); 
 

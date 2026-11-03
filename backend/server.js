@@ -396,12 +396,12 @@ app.post("/api/group/create", authenticateGoogle, async (req, res) => {
     if (!title || !duration || !deadline) {
         return res.status(400).send("Missing fields :c");
     }
-    const eventId = crypto.randomUUID();
     const creator_id = req.session.userId;
 
     try {
-        await pool.query(`INSERT INTO group_events (title, description, duration, deadline, creator_id, finalised) VALUES($1, $2, $3, $4, $5, false)`, [title, description, duration, deadline, creator_id]);
-        res.json({ message: "Group event created !!"} )
+        const result = await pool.query(`INSERT INTO group_events (title, description, duration, deadline, creator_id, finalised) VALUES($1, $2, $3, $4, $5, false) RETURNING id`, [title, description, duration, deadline, creator_id]);
+        const eventId = result.rows[0].id;
+        res.json({ message: "Group event created !!", eventId: eventId });
     } catch (error) {
         console.error(":c Error creating group event: ", error);
         res.status(500).send(":c Failed to generate group event :c");
@@ -425,9 +425,12 @@ app.get("/api/group/:id", async (req, res) => {
 app.post("/api/group/:id/submit", async (req, res) => {
     const eventId = req.params.id;
     const { participant_name, available_slots } = req.body;
+    if (!participant_name || !available_slots || !Array.isArray(available_slots)) {
+        return res.status(400).send("Missing fields :c");
+    }
     try {
-        await pool.query(`INSERT INTO group_availability (participant_name, available_slots, group_event_id) VALUES($1, $2, $3)`, [JSON.stringify(available_slots), available_slots, eventId]);
-        res.json({ message: "Availability Submitted !!"} )
+        await pool.query(`INSERT INTO group_availability (participant_name, available_slots, group_event_id) VALUES($1, $2, $3)`, [participant_name, JSON.stringify(available_slots), eventId]);
+        res.json({ message: "Availability Submitted !!"});
     } catch (error) {
         console.error(":c Error submitting availability group event: ", error);
         res.status(500).send(":c Failed to submit availability for group event :c");
