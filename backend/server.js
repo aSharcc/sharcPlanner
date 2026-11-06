@@ -439,11 +439,16 @@ app.post("/api/group/:id/submit", async (req, res) => {
 
 app.post("/api/group/:id/finalize", authenticateGoogle, async (req, res) => {
     const eventId = req.params.id;
+
 });
 
 app.get("/api/auth/me", authenticateGoogle, async (req, res) => {
-    const OAuth2 = google.oauth2({version: "v2", auth: req.authClient});
+    const OAuth2 = google.oauth2({ version: "v2", auth: req.authClient }); 
     const userInfo = await OAuth2.userinfo.get();
+
+    const { name, picture } = userInfo.data;
+
+    res.json({ username: name, picture: picture });
 });
 
 app.listen(PORT, () => {  
