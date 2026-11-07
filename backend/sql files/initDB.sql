@@ -1,3 +1,4 @@
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 CREATE TABLE IF NOT EXISTS session (
     sid VARCHAR PRIMARY KEY,
     sess JSON NOT NULL,
@@ -30,7 +31,7 @@ CREATE TABLE IF NOT EXISTS weekly_themes (
 );
 
 CREATE TABLE IF NOT EXISTS group_events (
-    id UUID PRIMARY KEY gen_random_uuid(),
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     creator_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
     title TEXT NOT NULL,
     description TEXT,

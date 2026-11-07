@@ -392,6 +392,20 @@ app.post("/api/feedback", authenticateGoogle, async  (req, res) => {
     }
 });
 
+app.get("/api/group/fetch", authenticateGoogle, async (req, res) => {
+    const userId = req.session.userId;
+    try {
+        const result = await pool.query(`SELECT * FROM group_events WHERE creator_id = $1`, [userId]);
+        if (result.rows.length === 0) {
+            return res.status(404).json({ message: "No group events found for that ID" });
+        }
+        res.json(result.rows);
+    } catch (error) {
+        console.error(":c Error getting your group events: ", error);
+        res.status(500).send(":c Failed to get your group events :c");
+    }
+});
+
 app.post("/api/group/create", authenticateGoogle, async (req, res) => {
     const { title, description, duration, deadline } = req.body;
     if (!title || !duration || !deadline) {
