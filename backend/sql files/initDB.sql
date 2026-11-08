@@ -19,7 +19,7 @@ CREATE TABLE IF NOT EXISTS feedback (
     id SERIAL PRIMARY KEY,
     message TEXT NOT NULL,
     datetime TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    session_id TEXT NOT NULL
+    session_id TEXT NOT NULL 
 );
 
 CREATE TABLE IF NOT EXISTS weekly_themes (
@@ -36,7 +36,8 @@ CREATE TABLE IF NOT EXISTS group_events (
     title TEXT NOT NULL,
     description TEXT,
     duration NUMERIC NOT NULL,
-    deadline TIMESTAMP NOT NULL,
+    rangeStart TIMESTAMP NOT NULL,
+    rangeEnd TIMESTAMP NOT NULL,
     finalised BOOLEAN NOT NULL DEFAULT FALSE,
     finalised_slot JSONB,
     date_created TIMESTAMP DEFAULT CURRENT_TIMESTAMP

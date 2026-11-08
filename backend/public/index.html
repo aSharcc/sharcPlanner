@@ -26,13 +26,14 @@
                 <ul>
                     <li><button id="tab-view" class="outline">View My Events</button></li>
                 </ul>
-                <ul>
+                <ul> 
                     <li><button id="tab-group" class="outline">Group Planner</button></li>
                 </ul>
             </nav>
             <hr>
         </header> 
         <main class="container">
+            <div id="timezone"></div>
             <div id="flash-message" hidden style="border-left: 0.25rem solid; padding: 1rem; border-radius: var(--pico-border-radius); margin-bottom: var(--pico-spacing);"></div>
             <div id="create-container">
                 <h3>Create Events</h3>
@@ -134,11 +135,15 @@
                     </label>
                     <label for="group-duration">
                         Required Duration (In Hours)
-                        <input type="number" id="group-duration" name="group-duration" required min="0.5">
+                        <input type="number" id="group-duration" name="group-duration" required min="0.1" step="any">
                     </label>
-                    <label for="group-deadline">
-                        Deadline
-                        <input type="date" id="group-deadline" name="group-deadline" required>
+                    <label for="group-start-range">
+                        Range Start Date
+                        <input type="date" id="group-start-range" name="group-start-range" required>
+                    </label>
+                    <label for="group-end-range">
+                        Range End Date
+                        <input type="date" id="group-end-range" name="group-end-range" required>
                     </label>
                     <button type="submit">Generate Link</button>
                 </form>
@@ -182,6 +187,10 @@
                 const userInfoLi = document.getElementById("user-info");
                 const groupLinkDiv = document.getElementById("group-link");
                 const yourGroupEventsDiv = document.getElementById("your-group-events");
+                const openTimezoneDiv = document.getElementById("timezone");
+
+                const userTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+                
 
                 function escapeHTML(str) {
                 if (typeof str !== "string") {
@@ -390,7 +399,8 @@
                         console.log("Could not get weekly theme: ", error);
                     }
                 } 
-
+                // Initial stuffs
+                openTimezoneDiv.innerHTML = `<p><strong>Your this will use the timezone ${userTimeZone} </strong> (pls tell me if this is wrong)</p>`
                 updateLoginStatus();
                 updateFormVisability();
                 aiSwitch.addEventListener("change", updateFormVisability); 
@@ -556,7 +566,7 @@
                                 showFlash(`Failed to submit feedback (Status: ${response.status})`, "bad");
                             }
                         } else if (form.id === "group-form") {
-                            if (!data["group-duration"] || !data["group-deadline"] || !data["group-title"]) {
+                            if (!data["group-duration"] || !data["group-start-range"] || !data["group-end-range"] || !data["group-title"]) {
                                 showFlash("Please fill all fields !!", "bad");
                                 return;
                             }
@@ -566,18 +576,25 @@
                                 return;
                             }
 
-                            const deadline = new Date(`${data["group-deadline"]}T23:59`);
+                            const startDate = new Date(`${data["group-start-range"]}T00:00`);
+                            const endDate = new Date(`${data["group-end-range"]}T23:59`);
 
-                            if (deadline.getTime() < today.getTime()) {
-                                showFlash("Date must be in the future", "bad");
+                            if (startDate.getTime() < today.getTime()) {
+                                showFlash("Start date must be in the future !!", "bad");
                                 return;
                             }
 
+                            if (startDate.getTime() > endDate.getTime()) {
+                                showFlash("End date must be after start date !!", "bad");
+                                return; 
+                            }  
+ 
                             const payload = {
                                 title: data["group-title"],
                                 description: data["group-description"] || "",
                                 duration: Number(data["group-duration"]),
-                                deadline: deadline.toISOString()
+                                startISO: startDate.toISOString(),
+                                endISO: endDate.toISOString()
                             };
 
                             button.disabled = true;

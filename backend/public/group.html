@@ -13,7 +13,8 @@
                     <li><h1 id="home-heading">sharcPlanner !!</h1></li>
                 </ul>
                 <ul>
-                    <li><a href="/" target="_self" role="button" class="outline">Go to sharcPlanner</a></li>
+                    <li id="user-info"></li>
+                    <li><a href="/api/auth/google" id="login-button" target="_self" role="button" class="outline">Connect to Google</a></li>
                 </ul>
             </nav>
             <hr>
@@ -29,6 +30,9 @@
                 <h3>Submit Availability</h3>
                 <div id="open-info"></div>
                 <div id="open-timezone"></div>
+                <form>
+                    <input>
+                </form>
             </div>
 
             <!--Footer Stuff-->
@@ -60,7 +64,7 @@
             });
 
             // Initial stuffs
-            openTimezoneDiv.innerHTML = `<p><strong>Your inputs will use the timezone ${userTimeZone}</strong></p>`
+            openTimezoneDiv.innerHTML = `<p><strong>Your inputs will use the timezone ${userTimeZone}</strong> (pls tell me if this is wrong)</p>`
         </script>
     </body>
 </html>
