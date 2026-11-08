@@ -247,10 +247,9 @@
                         yourGroupEventsDiv.innerHTML = "";
                         let contents = "<h4>Your Group Events</h4>";
                         for (const event of events) {
-                            console.log(event);
-                            contents += `<div style="display: inline-block; padding: 1rem;"><p><strong>${event.title}</strong></p><button id="group-share-btn${event.id}" data-link="${window.location.origin}/group.html?id=${event.id}">Share Group Event</button></div>`
+                            contents += `<div style="display: inline-block; padding: 1rem;"><p><strong>${escapeHTML(event.title)}</strong></p><button id="group-share-btn${event.id}" data-link="${window.location.origin}/group.html?id=${event.id}">Share Group Event</button></div>`
                             }
-                        yourGroupEventsDiv.innerHTML=escapeHTML(contents);
+                        yourGroupEventsDiv.innerHTML=contents;
                         yourGroupEventsDiv.hidden = false;
                         for (const event of events) {
                             const newShareButton = document.getElementById(`group-share-btn${event.id}`);
@@ -641,6 +640,7 @@
                                 fetchGroupEvents();
                             } else { 
                                 console.log("group event creation failed: ", response.status);
+                                console.log(response);
                                 showFlash(`Failed to create group event (Status: ${response.status})`, "bad");
                             }
                         } 

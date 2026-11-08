@@ -403,14 +403,14 @@ app.get("/api/group/fetch", authenticateGoogle, async (req, res) => {
 });
 
 app.post("/api/group/create", authenticateGoogle, async (req, res) => {
-    const { title, description, duration, rangeStart, rangeEnd } = req.body;
-    if (!title || !duration || !rangeStart || !rangeEnd) {
+    const { title, description, duration, startISO, endISO } = req.body;
+    if (!title || !duration || !startISO || !endISO) {
         return res.status(400).json({ error: "Missing fields :c" });
     }
     const creator_id = req.session.userId;
 
     try {
-        const result = await pool.query(`INSERT INTO group_events (title, description, duration, rangeStart, rangeEnd, creator_id, finalised) VALUES($1, $2, $3, $4, $5, false) RETURNING id`, [title, description, duration, rangeStart, rangeEnd, creator_id]);
+        const result = await pool.query(`INSERT INTO group_events (title, description, duration, range_start, range_end, creator_id, finalised) VALUES($1, $2, $3, $4, $5, $6, false) RETURNING id`, [title, description, duration, startISO, endISO, creator_id]);
         const eventId = result.rows[0].id;
         res.json({ message: "Group event created !!", eventId: eventId });
     } catch (error) {
@@ -422,7 +422,7 @@ app.post("/api/group/create", authenticateGoogle, async (req, res) => {
 app.get("/api/group/:id", async (req, res) => {
     const eventId = req.params.id;
     try {
-        const result = await pool.query(`SELECT title, description, duration, rangeStart, rangeEnd, finalised, finalised_slot FROM group_events WHERE id = $1`, [eventId]);
+        const result = await pool.query(`SELECT title, description, duration, range_start, range_end, finalised, finalised_slot FROM group_events WHERE id = $1`, [eventId]);
         if (result.rows.length === 0) {
             return res.status(404).json({ error: "No group events found for that ID" });
         }
@@ -432,7 +432,7 @@ app.get("/api/group/:id", async (req, res) => {
         console.error(":c Error getting group event: ", error);
         res.status(500).json({ error: ":c Failed to get group event :c" });
     }
-});
+}); 
 
 app.post("/api/group/:id/submit", async (req, res) => {
     const eventId = req.params.id;
@@ -446,7 +446,7 @@ app.post("/api/group/:id/submit", async (req, res) => {
             return res.status(404).json({ error: "No group events found for that ID" });
         }
         const event = result.rows[0]; 
-        if (event.rangeEnd.getTime() < new Date().getTime) {
+        if (event.range_end.getTime() < new Date().getTime) {
             return res.status(404).json({ error: "Range has passed." });
         }
         await pool.query(`INSERT INTO group_availability (participant_name, available_slots, group_event_id) VALUES($1, $2, $3)`, [participant_name, JSON.stringify(available_slots), eventId]);
