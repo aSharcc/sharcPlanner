@@ -31,7 +31,17 @@
                 <div id="open-info"></div>
                 <div id="open-timezone"></div>
                 <form>
-                    <input>
+                    <label for="availability-name">
+                        Name
+                        <input name="availability-name" id="availability-name" required>
+                    </label>
+                    <label for="availability-slot-1">
+                        Availability Slot 1
+                        <input name="availability-slot-1" id="availability-slot-1" required>
+                    </label>
+                    <div id="dynamic-slots"></div>
+                    <button type="button" id="add-slot">Add another slot</button>
+                    <button type="submit">Submit Availability</button>
                 </form>
             </div>
 
@@ -56,11 +66,30 @@
             const homeHeading = document.getElementById("home-heading");
             const openInfoDiv = document.getElementById("open-info");
             const openTimezoneDiv = document.getElementById("open-timezone");
+            const addAvailabilitySlot = document.getElementById("add-slot");
+            const dynamicInputs = document.getElementById("dynamic-slots");
 
             const userTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+            let slotCount = 1;
 
             homeHeading.addEventListener("click", () => {
                 window.location.href = "/";
+            });
+            addAvailabilitySlot.addEventListener("click", () => {
+                slotCount++;
+                const newRow = document.createElement("div");
+
+                const newLabel = document.createElement("label");
+                newLabel.setAttribute("for", `availability-slot-${slotCount}`);
+                newLabel.textContent = `Availability Slot ${slotCount}`;
+
+                const newInput = document.createElement("input");
+                newInput.name = `availability-slot-${slotCount}`;
+                newInput.id = `availability-slot-${slotCount}`;
+
+                newLabel.appendChild(newInput);
+                newRow.appendChild(newLabel);
+                dynamicInputs.appendChild(newRow);
             });
 
             // Initial stuffs

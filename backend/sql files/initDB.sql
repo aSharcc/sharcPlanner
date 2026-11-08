@@ -19,7 +19,7 @@ CREATE TABLE IF NOT EXISTS feedback (
     id SERIAL PRIMARY KEY,
     message TEXT NOT NULL,
     datetime TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    session_id TEXT NOT NULL 
+    session_id TEXT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS weekly_themes (
