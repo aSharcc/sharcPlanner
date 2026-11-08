@@ -196,7 +196,7 @@
                 if (typeof str !== "string") {
                         return "";
                     }
-                    return str.replace("&", "&amp").replace("<", "&lt").replace(">", "&gt").replace('"', "&quot").replace("'", "&#039");
+                    return str.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;");
                 }
 
                 function updateFormVisability() {
@@ -313,7 +313,7 @@
                             method: "POST"
                         });
                     } catch (error) {
-                        showFlash("Failed to logout");
+                        showFlash("Failed to logout", "bad");
                         console.log("Failed to logout", error);
                     }
                 }
@@ -325,14 +325,18 @@
                         if (data.isAuthenticated === true) { 
                             loginButton.innerText = "Log Out"; 
                             loginButton.style.borderColor = "green";
-                            loginButton.href = "";
-                            loginButton.onclick = () => logout();
+                            loginButton.onclick = async (event) => {
+                                event.preventDefault();
+                                await logout();
+                                location.reload();
+                            };
                             userInfo();
                         } else {
                             loginButton.innerText = "Connect to Google Calendar";
                             loginButton.style.borderColor = "red";
                             loginButton.href = "/api/auth/google";
                             userInfoLi.innerHTML = ``;
+                            loginButton.onclick = null;
                         } 
                     } catch (error) { 
                         console.log("Could not get login status: ", error);
@@ -352,20 +356,22 @@
                             return;
                         }
 
-                        const result = await response.json();
+                        if (response.ok) {
+                            const result = await response.json();
 
-                        if (result.message === "No events found. :c") {
-                            showFlash("No events found in primary calendar", "bad");
-                            fetchedEventsList.innerHTML = `<li>No events found in primary calendar</li>`
-                            return;
+                            if (result.error === "No events found. :c") {
+                                showFlash("No events found in primary calendar", "bad");
+                                fetchedEventsList.innerHTML = `<li>No events found in primary calendar</li>`
+                                return;
+                            }
+
+                            fetchedEventsList.innerHTML = ""; 
+                            let resultsHTML = "";
+                            for (const event of result) { resultsHTML += (`<li><strong>${escapeHTML(event.summary)}: </strong><a href="${escapeHTML(event.link)}">Link</a><br>
+                                                <strong>Start: </strong>${new Date(event.start).toLocaleString([], { timeStyle: "short", dateStyle: "medium" })}<br>
+                                                <strong>End: </strong>${new Date(event.end).toLocaleString([], { timeStyle: "short", dateStyle: "medium" })}</li>`);}
+                            fetchedEventsList.innerHTML = resultsHTML;
                         }
-
-                        fetchedEventsList.innerHTML = ""; 
-                        let resultsHTML = "";
-                        for (const event of result) { resultsHTML += (`<li><strong>${event.summary}: </strong><a href="${event.link}">Link</a><br>
-                                            <strong>Start: </strong>${new Date(event.start).toLocaleString([], { timeStyle: "short", dateStyle: "medium" })}<br>
-                                            <strong>End: </strong>${new Date(event.end).toLocaleString([], { timeStyle: "short", dateStyle: "medium" })}</li>`);}
-                        fetchedEventsList.innerHTML = escapeHTML(resultsHTML);
                     } catch (error) {
                         console.log("Error fetching events", error);
                         showFlash("Failed to get user events", "bad");  
@@ -398,6 +404,13 @@
                         console.log("Could not get weekly theme: ", error);
                     }
                 } 
+
+                function setDefaultDates() {
+                    document.querySelectorAll("input[type=date]").forEach(element => {
+                        element.value = today.toLocaleDateString('sv-SE');
+                        element.min = today.toLocaleDateString('sv-SE');
+                    });
+                }
                 // Initial stuffs
                 openTimezoneDiv.innerHTML = `<p><strong>Your this will use the timezone ${userTimeZone} </strong> (pls tell me if this is wrong)</p>`
                 updateLoginStatus();
@@ -405,12 +418,7 @@
                 aiSwitch.addEventListener("change", updateFormVisability); 
                 fetchWeeklyTheme();
                 resultsDiv.hidden = true; 
-
-
-                document.querySelectorAll("input[type=date]").forEach(element => {
-                    element.value = today.toLocaleDateString('sv-SE');
-                    element.min = today.toISOString().split("T")[0];
-                });
+                setDefaultDates();
 
                 tabCreate.addEventListener("click", () => switchTab("create"));
                 tabView.addEventListener("click", () => switchTab("view"));
@@ -436,7 +444,7 @@
                             const startISO = new Date(`${data["manual-start-date"]}T${data["manual-start-time"] || "00:00"}`);
                             const endISO = new Date(`${data["manual-end-date"]}T${data["manual-end-time"] || "00:00"}`);
 
-                            if (startISO.getTime() > endISO.getTime()) {
+                            if (startISO.getTime() >= endISO.getTime()) {
                                 showFlash("End date must be after start date", "bad");
                                 return;
                             }
@@ -468,13 +476,14 @@
                             if (response.ok) {
                                 console.log("Manual event added successfully"); 
                                 form.reset();
+                                setDefaultDates();
                                 showFlash("Yippie event created", "good");
                                 resultsList.innerHTML = "";
                                 let resultsHTML = "";
-                                resultsHTML += (`<li><strong>${result.event.summary}: </strong><a href="${result.event.htmlLink}">Link</a><br>
+                                resultsHTML += (`<li><strong>${escapeHTML(result.event.summary)}: </strong><a href="${result.event.htmlLink}">Link</a><br>
                                                     <strong>Start: </strong>${new Date(result.event.start.dateTime).toLocaleString([], { timeStyle: "short", dateStyle: "medium" })}<br>
                                                     <strong>End: </strong>${new Date(result.event.end.dateTime).toLocaleString([], { timeStyle: "short", dateStyle: "medium" })}</li>`);
-                                resultsList.innerHTML = escapeHTML(resultsHTML);
+                                resultsList.innerHTML = resultsHTML;
                                 resultsDiv.hidden = false;
                             } else {
                                 console.log("Manual event failed: ", response.status);
@@ -528,13 +537,14 @@
                                 }
                                 console.log("ai plan added successfully", result);  
                                 form.reset();
+                                setDefaultDates();
                                 showFlash("Yippie ai plan created", "good"); 
                                 resultsList.innerHTML = "";
                                 let resultsHTML = "";
-                                for (const event of result.schedule) { resultsHTML += (`<li><strong>${event.summary}: </strong><a href="${event.link}">Link</a><br>
+                                for (const event of result.schedule) { resultsHTML += (`<li><strong>${escapeHTML(event.summary)}: </strong><a href="${escapeHTML(event.link)}">Link</a><br>
                                                     <strong>Start: </strong>${new Date(event.start.dateTime).toLocaleString([], { timeStyle: "short", dateStyle: "medium" })}<br>
                                                     <strong>End: </strong>${new Date(event.end.dateTime).toLocaleString([], { timeStyle: "short", dateStyle: "medium" })}</li>`);}
-                                resultsList.innerHTML = escapeHTML(resultsHTML);
+                                resultsList.innerHTML = resultsHTML;
                                 resultsDiv.hidden = false;
                             } else {
                                 console.log("AI plan failed: ", response.status);
@@ -577,8 +587,11 @@
 
                             const startDate = new Date(`${data["group-start-range"]}T00:00`);
                             const endDate = new Date(`${data["group-end-range"]}T23:59`);
+                            const startOfToday = new Date(today);
 
-                            if (startDate.getTime() < today.getTime()) {
+                            startOfToday.setHours(0, 0, 0, 0);
+
+                            if (startDate.getTime() < startOfToday.getTime()) {
                                 showFlash("Start date must be in the future !!", "bad");
                                 return;
                             }
@@ -614,6 +627,7 @@
 
                             if (response.ok) {
                                 form.reset();
+                                setDefaultDates();
                                 showFlash("Yippie group event created successfully", "good");
 
                                 groupLinkDiv.innerHTML = `<p>Share this link with participants !!</p>

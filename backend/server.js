@@ -136,9 +136,15 @@ app.get("/api/auth/callback", async (req, res) => {
 });
 
 app.post("/api/auth/logout", (req, res) => {
-    req.session.destroy();
-    console.log("User logged out successfully");
-    res.redirect("/");
+    req.session.destroy((error) => {
+        if (error) {
+            console.error("Error destroying session/logging out", error);
+            return res.status(500).json({ error: "Failed to logout :c" });
+        }
+        res.clearCookie("connect.sid");
+        console.log("user logged out");
+        res.json({ message: "Logged out" })
+    });
 });
 
 app.get("/api/calendar/events", authenticateGoogle, async (req, res) => {
@@ -327,18 +333,21 @@ app.post("/api/ai/generate-events", authenticateGoogle, async (req, res) => {
                     dateTime: item.endISO,
                 },
             };
+            try {
+                const calendarResponse = await calendar.events.insert({
+                calendarId: "primary",
+                requestBody: event,
+                });
 
-            const calendarResponse = await calendar.events.insert({
-               calendarId: "primary",
-               requestBody: event,
-            });
-
-            createdEvents.push({
+                createdEvents.push({
                 summary: item.summary,
                 link: calendarResponse.data.htmlLink,
                 start: calendarResponse.data.start,
                 end: calendarResponse.data.end
-            });
+                });
+            } catch (error) {
+                console.log("error inserting an AI event:", error);
+            }
         }  
 
         res.json({
