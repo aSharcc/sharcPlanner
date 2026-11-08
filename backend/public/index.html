@@ -121,11 +121,11 @@
 
             <div id="group-container" hidden>
                 <div id="your-group-events" hidden></div>
-                <h3>Create Events</h3>
+                <h3>Create Group Events</h3>
                 <p>Find a common free time slot for multiple people.</p>
                 <form id="group-form">
                     <label for="group-title">
-                        Title of Event
+                        Title of Event 
                         <input type="text" id="group-title" name="group-title" required>
                     </label>
                     <label for="group-description">
@@ -142,7 +142,7 @@
                     </label>
                     <button type="submit">Generate Link</button>
                 </form>
-                <div id="group-link" hidden style="padding-bottom: 1rem;"><button id="group-share-btn" ></button></div>
+                <div id="group-link" hidden style="padding-bottom: 1rem;"></div>
             </div>
 
             <details>
@@ -181,7 +181,6 @@
                 const fetchEventsButton = document.getElementById("fetch-events-button");
                 const userInfoLi = document.getElementById("user-info");
                 const groupLinkDiv = document.getElementById("group-link");
-                const shareGroupButton = document.getElementById("group-share-btn");
                 const yourGroupEventsDiv = document.getElementById("your-group-events");
 
                 function updateFormVisability() {
@@ -220,7 +219,7 @@
 
                 async function fetchGroupEvents() {
                     try {
-                        const response = await fetch("api/group/fetch");
+                        const response = await fetch("/api/group/fetch");
                         if (response.status === 401) {
                             showFlash("Failed to get user info", "bad");
                             return;
@@ -336,7 +335,7 @@
 
                         fetchedEventsList.innerHTML = ""; 
                         let resultsHTML = "";
-                        for (event of result) { resultsHTML += (`<li><strong>${event.summary}: </strong><a href="${event.link}">Link</a><br>
+                        for (const event of result) { resultsHTML += (`<li><strong>${event.summary}: </strong><a href="${event.link}">Link</a><br>
                                             <strong>Start: </strong>${new Date(event.start).toLocaleString([], { timeStyle: "short", dateStyle: "medium" })}<br>
                                             <strong>End: </strong>${new Date(event.end).toLocaleString([], { timeStyle: "short", dateStyle: "medium" })}</li>`);}
                         fetchedEventsList.innerHTML = resultsHTML;
@@ -389,22 +388,6 @@
                 tabView.addEventListener("click", () => switchTab("view"));
                 tabGroup.addEventListener("click", () => switchTab("group"));
                 fetchEventsButton.addEventListener("click", getUserEvents);
-                shareGroupButton.addEventListener("click", () => { // code from my other project !!
-                    const link = shareGroupButton.getAttribute("data-link");
-                    const originalText=shareGroupButton.textContent;
-                    navigator.clipboard.writeText(link).then(() => {
-                    shareGroupButton.textContent="Copied !!";
-                        setTimeout(() => {
-                            shareGroupButton.textContent=originalText;
-                        }, 1000)
-                    }).catch(err => {
-                        console.error("failed t o copy: ", err);
-                        shareGroupButton.textContent="Failed to Copy :/";
-                        setTimeout(() => {
-                            shareGroupButton.textContent=originalText;
-                        }, 1000)
-                    });
-                });
 
                 document.addEventListener("submit", async (event) => {
                     event.preventDefault();
@@ -520,7 +503,7 @@
                                 showFlash("Yippie ai plan created", "good"); 
                                 resultsList.innerHTML = "";
                                 let resultsHTML = "";
-                                for (event of result.schedule) { resultsHTML += (`<li><strong>${event.summary}: </strong><a href="${event.link}">Link</a><br>
+                                for (const event of result.schedule) { resultsHTML += (`<li><strong>${event.summary}: </strong><a href="${event.link}">Link</a><br>
                                                     <strong>Start: </strong>${new Date(event.start.dateTime).toLocaleString([], { timeStyle: "short", dateStyle: "medium" })}<br>
                                                     <strong>End: </strong>${new Date(event.end.dateTime).toLocaleString([], { timeStyle: "short", dateStyle: "medium" })}</li>`);}
                                 resultsList.innerHTML = resultsHTML;

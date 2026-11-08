@@ -5,8 +5,6 @@ import { GoogleGenAI, Type } from "@google/genai";
 import session from "express-session";
 import pg from "pg";
 import connectPgSimple from "connect-pg-simple";
-import crypto from "crypto";
-import { start } from "repl";
 
 const app = express(); // start the webapp with express
 if (process.env.NODE_ENV === "production") {
@@ -54,7 +52,7 @@ app.use(session({
 
 function authenticateGoogle(req, res, next) {
     if (!req.session.userTokens) {
-        return res.status(401).send("Not Authenticated, go to /api/auth/google first !!");
+        return res.status(401).json({ error : "Not Authenticated, go to /api/auth/google first !!" });
     }
 
     const authClient = new google.auth.OAuth2({
@@ -122,7 +120,7 @@ app.get("/api/auth/callback", async (req, res) => {
         req.session.save((err) => {
             if (err) {
                 console.error("Error saving session: ", err);
-                return res.status(500).send("Server error during login :c");
+                return res.status(500).json({ error: "Server error during login :c" });
             }
 
             console.log("Successfully authenticated !! woop woop anyways tokens:");
@@ -157,7 +155,7 @@ app.get("/api/calendar/events", authenticateGoogle, async (req, res) => {
         const events = response.data.items;
         
         if (!events || events.length === 0) {
-            return res.json({ message: "No events found. :c"});
+            return res.json({ error: "No events found. :c" });
         }
 
         const formattedEvents = events.map(event =>({
@@ -171,7 +169,7 @@ app.get("/api/calendar/events", authenticateGoogle, async (req, res) => {
 
     } catch (error) {
         console.error(":c Error getting calendar events: ", error);
-        res.status(500).send(":c Failed to get calendar events");
+        res.status(500).json({ error: ":c Failed to get calendar events" });
     }
 });
 
@@ -179,7 +177,7 @@ app.post("/api/calendar/add-event", authenticateGoogle, async (req, res) => {
     const { summary, description, startISO, endISO} = req.body;
 
     if (!summary || !startISO || !endISO) {
-        return res.status(400).send("Missing fields :c");
+        return res.status(400).json({ error: "Missing fields :c" });
     }
 
     const formattedStart = startISO.length === 16 ? `${startISO}:00Z` : startISO;
@@ -215,7 +213,7 @@ app.post("/api/calendar/add-event", authenticateGoogle, async (req, res) => {
 
     } catch (error) {
         console.error(":c Error adding calendar event: ", error);
-        res.status(500).send(":c Failed to create event :c");
+        res.status(500).json({ error: ":c Failed to create event :c" });
     }
 });
 
@@ -237,7 +235,7 @@ app.post("/api/ai/generate-events", authenticateGoogle, async (req, res) => {
     const { goal, time, deadline } = req.body;
 
     if (!goal || !time || !deadline) {
-        return res.status(400).send("Missing fields :c");
+        return res.status(400).json({ error: "Missing fields :c" });
     }
 
     try {
@@ -251,7 +249,6 @@ app.post("/api/ai/generate-events", authenticateGoogle, async (req, res) => {
         });  
 
         const events = rawEvents.data.items || [];
-        const oneEvent = null;
         let busySchedule = "";
         if (events.length > 0) {
             for (const event of events) {
@@ -316,7 +313,7 @@ app.post("/api/ai/generate-events", authenticateGoogle, async (req, res) => {
             schedule = JSON.parse(cleanedText);
         } catch (error) {
             console.error("Error parsing AI response:", error);
-            return res.status(500).send("Invalid response format from AI :c");
+            return res.status(500).json({ error: "Invalid response format from AI :c" });
         }
         const createdEvents = []
         
@@ -352,7 +349,7 @@ app.post("/api/ai/generate-events", authenticateGoogle, async (req, res) => {
         });
     } catch (error) {
         console.error(":c Error generating AI events: ", error);
-        res.status(500).send(":c Failed to generate ai event :c");
+        res.status(500).json({ error: ":c Failed to generate ai event :c" });
     }
 });
 
@@ -369,26 +366,26 @@ app.get("/api/themes/current", async (req, res) => {
             LIMIT 1
         `);
         if (result.rows.length === 0) {
-            return res.json({ message: "No current theme found." });
+            return res.json({ error: "No current theme found." });
         }
         res.json(result.rows[0]);
     } catch (error) {
         console.error("Error fetching current theme: ", error);
-        res.status(500).send("Failed to fetch current theme :c");
+        res.status(500).json({ error: "Failed to fetch current theme :c" });
     }
 });
 
 app.post("/api/feedback", authenticateGoogle, async  (req, res) => {
     const { message } = req.body;
     if (!message) {
-        return res.status(400).send("Feedback message cannot be empty !!")
+        return res.status(400).json({ error: "Feedback message cannot be empty !!" })
     }
     try {
         await pool.query(`INSERT INTO feedback (message, session_id) VALUES ($1, $2)`, [message, req.sessionID]);
         res.json({ message: "Thank you for your feedback !! c:" });
     } catch (error) {
         console.error("Error saving feedback: ", error);
-        res.status(500).send("Failed to save feedback :c");
+        res.status(500).json({ error: "Failed to save feedback :c" });
     }
 });
 
@@ -397,19 +394,19 @@ app.get("/api/group/fetch", authenticateGoogle, async (req, res) => {
     try {
         const result = await pool.query(`SELECT * FROM group_events WHERE creator_id = $1`, [userId]);
         if (result.rows.length === 0) {
-            return res.status(404).json({ message: "No group events found for that ID" });
+            return res.status(404).json({ error: "No group events found for that ID" });
         }
         res.json(result.rows);
     } catch (error) {
         console.error(":c Error getting your group events: ", error);
-        res.status(500).send(":c Failed to get your group events :c");
+        res.status(500).json({ error: ":c Failed to get your group events :c" });
     }
 });
 
 app.post("/api/group/create", authenticateGoogle, async (req, res) => {
     const { title, description, duration, deadline } = req.body;
     if (!title || !duration || !deadline) {
-        return res.status(400).send("Missing fields :c");
+        return res.status(400).json({ error: "Missing fields :c" });
     }
     const creator_id = req.session.userId;
 
@@ -419,7 +416,7 @@ app.post("/api/group/create", authenticateGoogle, async (req, res) => {
         res.json({ message: "Group event created !!", eventId: eventId });
     } catch (error) {
         console.error(":c Error creating group event: ", error);
-        res.status(500).send(":c Failed to generate group event :c");
+        res.status(500).json({ error: ":c Failed to generate group event :c" });
     }
 });
 
@@ -428,12 +425,12 @@ app.get("/api/group/:id", async (req, res) => {
     try {
         const result = await pool.query(`SELECT * FROM group_events WHERE id = $1`, [eventId]);
         if (result.rows.length === 0) {
-            return res.status(404).json({ message: "No group events found for that ID" });
+            return res.status(404).json({ error: "No group events found for that ID" });
         }
         res.json(result.rows[0]);
     } catch (error) {
         console.error(":c Error getting group event: ", error);
-        res.status(500).send(":c Failed to get group event :c");
+        res.status(500).json({ error: ":c Failed to get group event :c" });
     }
 });
 
@@ -441,40 +438,40 @@ app.post("/api/group/:id/submit", async (req, res) => {
     const eventId = req.params.id;
     const { participant_name, available_slots } = req.body;
     if (!participant_name || !available_slots || !Array.isArray(available_slots)) {
-        return res.status(400).send("Missing fields :c");
+        return res.status(400).json({ error: "Missing fields :c" });
     }
     try {
         await pool.query(`INSERT INTO group_availability (participant_name, available_slots, group_event_id) VALUES($1, $2, $3)`, [participant_name, JSON.stringify(available_slots), eventId]);
         res.json({ message: "Availability Submitted !!"});
     } catch (error) {
         console.error(":c Error submitting availability group event: ", error);
-        res.status(500).send(":c Failed to submit availability for group event :c");
+        res.status(500).json({ error: ":c Failed to submit availability for group event :c" });
     }
 });
 
 app.post("/api/group/:id/generate_slots", authenticateGoogle, async (req, res) => {
     const eventId = req.params.id;
     const userId = req.session.userId;
-    const { additonal_context } = req.body; 
+    const { additional_context } = req.body; 
     
     try {
         const eventResult = await pool.query(`SELECT * FROM group_events WHERE id = $1`, [eventId]);
         if (eventResult.rows.length === 0) {
-            return res.status(404).json({ message: "No group events found for that ID" });
+            return res.status(404).json({ error: "No group events found for that ID" });
         }
 
         const eventDetails = eventResult.rows[0];
         
         if (eventDetails.creator_id !== userId) {
-            return res.status(403).json({ message: "You are not the creator." });
+            return res.status(403).json({ error: "You are not the creator." });
         }
         if (eventDetails.finalised === true) {
-            return res.json({ message: "Already finalised !!" });
+            return res.json({ error: "Already finalised !!" });
         }
         
         const groupAvailability = await pool.query(`SELECT participant_name, available_slots FROM group_availability WHERE group_event_id = $1`, [eventDetails.id]);
         if (groupAvailability.rows.length === 0) {
-            return res.status(404).json({ message: "No availability submitted yet !!" });
+            return res.status(404).json({ error: "No availability submitted yet !!" });
         }
 
         // Find the optimal times
@@ -514,7 +511,7 @@ app.post("/api/group/:id/generate_slots", authenticateGoogle, async (req, res) =
                         ${JSON.stringify(groupAvailability.rows, null, 2)}
 
                         Addtional Context added: 
-                        ${additonal_context}
+                        ${additional_context}
                         `;
 
         const response = await ai.models.generateContent({
@@ -544,7 +541,7 @@ app.post("/api/group/:id/generate_slots", authenticateGoogle, async (req, res) =
             suggestedSlots = JSON.parse(cleanedText);
         } catch (error) {
             console.error("Error parsing AI response:", error);
-            return res.status(500).send("Invalid response format from AI :c");
+            return res.status(500).json({ error: "Invalid response format from AI :c" });
         }
 
  
@@ -555,7 +552,7 @@ app.post("/api/group/:id/generate_slots", authenticateGoogle, async (req, res) =
         });
     } catch (error) {
         console.error(":c Error finalising group event: ", error);
-        res.status(500).send(":c Failed to finalise for group event :c");
+        res.status(500).json({ error: ":c Failed to finalise for group event :c" });
     }
 
 });
@@ -566,20 +563,20 @@ app.post("/api/group/:id/finalise", authenticateGoogle, async (req, res) => {
     const { selected_slot } = req.body;
 
     if (!selected_slot || !selected_slot.startISO || !selected_slot.endISO) {
-        return res.status(400).send("Missing selected slot :c");
+        return res.status(400).json({ error: "Missing selected slot :c" });
     } 
 
     try {
         const eventResult = await pool.query(`SELECT * FROM group_events WHERE id = $1`, [eventId]);
         if (eventResult.rows.length === 0) {
-            return res.status(404).json({ message: "No group events found for that ID" });
+            return res.status(404).json({ error: "No group events found for that ID" });
         }
         const eventDetails = eventResult.rows[0];
         if (eventDetails.creator_id !== userId) {
-            return res.status(403).json({ message: "You are not the creator." });
+            return res.status(403).json({ error: "You are not the creator." });
         }
         if (eventDetails.finalised === true) {
-            return res.json({ message: "Already finalised !!" });
+            return res.json({ error: "Already finalised !!" });
         }
        
         await pool.query(`UPDATE group_events SET finalised = TRUE, finalised_slot = $1 WHERE id = $2 `, [selected_slot, eventId]);
@@ -606,9 +603,9 @@ app.post("/api/group/:id/finalise", authenticateGoogle, async (req, res) => {
             event: response.data
         });
 
-    } catch (error) {
-        console.error(":c Error finalising group event: ", error);
-        res.status(500).send(":c Failed to finalise for group event :c");
+    } catch (error) { 
+        console.error(":c Error finalising group event: ", error); 
+        res.status(500).json({ error: ":c Failed to finalise for group event :c" }); 
     }
 });
 
@@ -620,7 +617,7 @@ app.get("/api/auth/me", authenticateGoogle, async (req, res) => {
 
     res.json({ username: name, picture: picture });
 });
-
+ 
 app.listen(PORT, () => {  
     console.log(`Server running on port ${PORT} yippie !!`) // `` for formatting
 });
