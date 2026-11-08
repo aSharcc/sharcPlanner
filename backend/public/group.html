@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>sharcPlanner - Group Event</title>
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css"/>
+    </head>
+    <body>
+        <header class="container">
+            <nav>
+                <ul>
+                    <li><h1 id="home-heading">sharcPlanner !!</h1></li>
+                </ul>
+                <ul>
+                    <li><a href="/" target="_self" role="button" class="outline">Go to sharcPlanner</a></li>
+                </ul>
+            </nav>
+            <hr>
+        </header>
+
+        <main class="container">
+            <div id="flash-message" hidden style="border-left: 0.25rem solid; padding: 1rem; border-radius: var(--pico-border-radius); margin-bottom: var(--pico-spacing);"></div>
+            <div id="Loading" hidden></div>
+            <div id="Error" hidden></div>
+            <div id="Closed" hidden></div>
+            <div id="Finalised" hidden></div>
+            <div id="Open" hidden>
+                <h3>Submit Availability</h3>
+                <div id="open-info"></div>
+                <div id="open-timezone"></div>
+            </div>
+
+            <!--Footer Stuff-->
+            <details>
+                <summary>User Feedback. Current Focus: Timezones</summary>
+                <form id="feedback-form">
+                    <label for="feedback-message">
+                        Feedback Message
+                        <textarea id="feedback-message" name="message"></textarea>
+                    </label>
+                    <button type="submit">Submit Feedback</button>
+                </form>
+            </details>
+
+            <footer>
+                <a href="/privacy.html" target="_blank" >Privacy Policy / TOS / README</a>
+            </footer>
+        </main>
+        
+        <script>
+            const homeHeading = document.getElementById("home-heading");
+            const openInfoDiv = document.getElementById("open-info");
+            const openTimezoneDiv = document.getElementById("open-timezone");
+
+            const userTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+            homeHeading.addEventListener("click", () => {
+                window.location.href = "/";
+            });
+
+            // Initial stuffs
+            openTimezoneDiv.innerHTML = `<p><strong>Your inputs will use the timezone ${userTimeZone}</strong></p>`
+        </script>
+    </body>
+</html>

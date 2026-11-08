@@ -183,6 +183,13 @@
                 const groupLinkDiv = document.getElementById("group-link");
                 const yourGroupEventsDiv = document.getElementById("your-group-events");
 
+                function escapeHTML(str) {
+                if (typeof str !== "string") {
+                        return "";
+                    }
+                    return str.replace("&", "&amp").replace("<", "&lt").replace(">", "&gt").replace('"', "&quot").replace("'", "&#039");
+                }
+
                 function updateFormVisability() {
                     const isAI = aiSwitch.checked;
                     manualForm.hidden = isAI;
@@ -234,7 +241,7 @@
                             console.log(event);
                             contents += `<div style="display: inline-block; padding: 1rem;"><p><strong>${event.title}</strong></p><button id="group-share-btn${event.id}" data-link="${window.location.origin}/group.html?id=${event.id}">Share Group Event</button></div>`
                             }
-                        yourGroupEventsDiv.innerHTML=contents;
+                        yourGroupEventsDiv.innerHTML=escapeHTML(contents);
                         yourGroupEventsDiv.hidden = false;
                         for (const event of events) {
                             const newShareButton = document.getElementById(`group-share-btn${event.id}`);
@@ -286,9 +293,20 @@
 
                         const data = await response.json();
 
-                        userInfoLi.innerHTML = `${data.username}`;
+                        userInfoLi.innerHTML = `${escapeHTML(data.username)}`;
                     } catch (error) {
                         console.log(error);
+                    }
+                }
+
+                async function logout() {
+                    try {
+                        await fetch("/api/auth/logout", {
+                            method: "POST"
+                        });
+                    } catch (error) {
+                        showFlash("Failed to logout");
+                        console.log("Failed to logout", error);
                     }
                 }
                 
@@ -299,7 +317,8 @@
                         if (data.isAuthenticated === true) { 
                             loginButton.innerText = "Log Out"; 
                             loginButton.style.borderColor = "green";
-                            loginButton.href = "/api/auth/logout";
+                            loginButton.href = "";
+                            loginButton.onclick = () => logout();
                             userInfo();
                         } else {
                             loginButton.innerText = "Connect to Google Calendar";
@@ -338,7 +357,7 @@
                         for (const event of result) { resultsHTML += (`<li><strong>${event.summary}: </strong><a href="${event.link}">Link</a><br>
                                             <strong>Start: </strong>${new Date(event.start).toLocaleString([], { timeStyle: "short", dateStyle: "medium" })}<br>
                                             <strong>End: </strong>${new Date(event.end).toLocaleString([], { timeStyle: "short", dateStyle: "medium" })}</li>`);}
-                        fetchedEventsList.innerHTML = resultsHTML;
+                        fetchedEventsList.innerHTML = escapeHTML(resultsHTML);
                     } catch (error) {
                         console.log("Error fetching events", error);
                         showFlash("Failed to get user events", "bad");  
@@ -446,7 +465,7 @@
                                 resultsHTML += (`<li><strong>${result.event.summary}: </strong><a href="${result.event.htmlLink}">Link</a><br>
                                                     <strong>Start: </strong>${new Date(result.event.start.dateTime).toLocaleString([], { timeStyle: "short", dateStyle: "medium" })}<br>
                                                     <strong>End: </strong>${new Date(result.event.end.dateTime).toLocaleString([], { timeStyle: "short", dateStyle: "medium" })}</li>`);
-                                resultsList.innerHTML = resultsHTML;
+                                resultsList.innerHTML = escapeHTML(resultsHTML);
                                 resultsDiv.hidden = false;
                             } else {
                                 console.log("Manual event failed: ", response.status);
@@ -506,7 +525,7 @@
                                 for (const event of result.schedule) { resultsHTML += (`<li><strong>${event.summary}: </strong><a href="${event.link}">Link</a><br>
                                                     <strong>Start: </strong>${new Date(event.start.dateTime).toLocaleString([], { timeStyle: "short", dateStyle: "medium" })}<br>
                                                     <strong>End: </strong>${new Date(event.end.dateTime).toLocaleString([], { timeStyle: "short", dateStyle: "medium" })}</li>`);}
-                                resultsList.innerHTML = resultsHTML;
+                                resultsList.innerHTML = escapeHTML(resultsHTML);
                                 resultsDiv.hidden = false;
                             } else {
                                 console.log("AI plan failed: ", response.status);
