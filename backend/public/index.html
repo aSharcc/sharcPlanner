@@ -407,7 +407,7 @@
 
                 function setDefaultDates() {
                     document.querySelectorAll("input[type=date]").forEach(element => {
-                        element.value = today.toLocaleDateString('sv-SE');
+                        element.value = today.toLocaleDateString('sv-SE'); // sv-SE because its very close to ISO 8601
                         element.min = today.toLocaleDateString('sv-SE');
                     });
                 }
@@ -509,6 +509,7 @@
                             
 
                             const payload = {
+                                timeZone: userTimeZone,
                                 goal: data["ai-goal"],
                                 time: Number(data["ai-time"]),
                                 deadline: deadline.toISOString(), 

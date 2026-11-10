@@ -21,7 +21,7 @@ const PgSession = connectPgSimple(session);
 
 const auth = new google.auth.OAuth2({
     clientId: process.env.GOOGLE_CLIENT_ID,
-    clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+    clientSecret: process.env.GOOGLE_CLIENT_SECRET,           
     redirectUri: process.env.GOOGLE_REDIRECT_URI
 });
 
@@ -223,6 +223,40 @@ app.post("/api/calendar/add-event", authenticateGoogle, async (req, res) => {
 });
 
 app.post("/api/ai/generate-events", authenticateGoogle, async (req, res) => {
+
+    const { timeZone, goal, time, deadline } = req.body;
+
+    if (!goal || !time || !deadline) {
+        return res.status(400).json({ error: "Missing fields :c" });
+    }
+
+    let userTimeZone = "UTC"
+
+    try {
+        if (typeof timeZone === "string") {
+            Intl.DateTimeFormat("sv-SE", { timeZone: timeZone });
+            userTimeZone = timeZone;
+        }
+    } catch (error) {
+        console.log("Invalid timezone !! QwQ");
+    }
+
+    const deadlineDate = new Date(deadline);
+
+    if (isNaN(deadlineDate.getTime())) {
+        return res.status(400).json({ error: "invalid deadline" });
+    }
+
+    const formattedDeadline = deadlineDate.toLocaleString("sv-SE", { timeZone: userTimeZone });
+
+    const currentDate = new Date();
+
+    const formattedCurrentDate = currentDate.toLocaleString("sv-SE", { timeZone: userTimeZone });
+
+    if (deadlineDate.getTime() <= currentDate.getTime()) {
+        return res.status(400).json({ error: "deadline must be in the future !!" });
+    }
+
     const todayString = new Date().toDateString();
     if (!req.session.aiUsage || req.session.aiUsage.date !== todayString) {
         req.session.aiUsage = { count: 0, date: todayString };
@@ -237,20 +271,16 @@ app.post("/api/ai/generate-events", authenticateGoogle, async (req, res) => {
     req.session.aiUsage.count += 1;
     req.session.save();
 
-    const { goal, time, deadline } = req.body;
-
-    if (!goal || !time || !deadline) {
-        return res.status(400).json({ error: "Missing fields :c" });
-    }
 
     try {
         const calendar = google.calendar({ version: "v3", auth: req.authClient });
         const rawEvents = await calendar.events.list({
             calendarId: "primary",
             timeMin: new Date().toISOString(),
-            maxResults: 20,
+            maxResults: 40,
+            timeMax: deadlineDate.toISOString(),
             singleEvents: true,
-            orderBy: "startTime"
+            orderBy: "startTime",
         });  
 
         const events = rawEvents.data.items || [];
@@ -258,11 +288,13 @@ app.post("/api/ai/generate-events", authenticateGoogle, async (req, res) => {
         if (events.length > 0) {
             for (const event of events) {
                 busySchedule += event.summary || "No Summary";
-                busySchedule += ": From "
-                busySchedule += event.start.dateTime || event.start.date || "";
-                busySchedule += " to "
-                busySchedule += event.end.dateTime || event.end.date || "";
-                busySchedule += "\n"
+                busySchedule += ": From ";
+                const formattedStart = new Date(event.start.dateTime || event.start.date).toLocaleString("sv-SE", { timeZone: userTimeZone });
+                busySchedule += formattedStart || "";
+                busySchedule += " to ";
+                const formattedEnd = new Date(event.end.dateTime || event.end.date).toLocaleString("sv-SE", { timeZone: userTimeZone });
+                busySchedule += formattedEnd || "";
+                busySchedule += "\n";
             }
         }
 
@@ -278,12 +310,14 @@ app.post("/api/ai/generate-events", authenticateGoogle, async (req, res) => {
             7. If it is malicious/harmful, refuse by returning an empty array or throw an error.
             
             Break the data down into non-overlapping sessions. If an event lasts across a whole day or multiple days straight, this can be overlapped as it wont be continuous work.
+            Schedule these events in the given timezone, stay within sensible hours based on the task, return local times with no Z and no time offset.
             Return a list of scheduled event objects with summary, description, startISO and endISO`;
 
         const prompt = `Goal: ${goal}
                         They need to spend: ${time} hours
-                        Deadline: ${deadline}
-                        Current Date: ${new Date().toISOString()}
+                        Deadline: ${formattedDeadline}
+                        Timezone: ${userTimeZone}
+                        Current Date: ${formattedCurrentDate}
 
                         Existing Calendar Events (DO NOT overlap with these):
                         ${busySchedule}
@@ -303,8 +337,8 @@ app.post("/api/ai/generate-events", authenticateGoogle, async (req, res) => {
                         properties: {
                             summary: { type: Type.STRING},
                             description: { type: Type.STRING},
-                            startISO: { type: Type.STRING, description: "Start time in ISO 8601 format (YYYY-MM-DDTHH:mm:ssZ)" },
-                            endISO: { type: Type.STRING, description: "End time in ISO 8601 format (YYYY-MM-DDTHH:mm:ssZ)"},
+                            startISO: { type: Type.STRING, description: "Start time in ISO 8601 format (YYYY-MM-DDTHH:mm:ss)" },
+                            endISO: { type: Type.STRING, description: "End time in ISO 8601 format (YYYY-MM-DDTHH:mm:ss)"},
                         },
                         required: ["summary", "startISO", "endISO"],
                     },
@@ -320,6 +354,7 @@ app.post("/api/ai/generate-events", authenticateGoogle, async (req, res) => {
             console.error("Error parsing AI response:", error);
             return res.status(500).json({ error: "Invalid response format from AI :c" });
         }
+
         const createdEvents = []
         
         for (const item of schedule) {
@@ -328,9 +363,11 @@ app.post("/api/ai/generate-events", authenticateGoogle, async (req, res) => {
                 description: item.description || "Created with sharcPlanner AI :3",
                 start: {
                     dateTime: item.startISO,
+                    timeZone: userTimeZone,
                 }, 
                 end: {
                     dateTime: item.endISO,
+                    timeZone: userTimeZone,
                 },
             };
             try {
