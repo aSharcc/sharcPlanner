@@ -205,7 +205,7 @@ app.post("/api/calendar/add-event", authenticateGoogle, async (req, res) => {
  
         const response = await calendar.events.insert({
             calendarId: "primary",
-            requestBody: event
+            requestBody: event,
         });
 
         console.log("Event created !!");
@@ -224,10 +224,16 @@ app.post("/api/calendar/add-event", authenticateGoogle, async (req, res) => {
 
 app.post("/api/ai/generate-events", authenticateGoogle, async (req, res) => {
 
-    const { timeZone, goal, time, deadline } = req.body;
+    const { timeZone, goal, time: rawTime, deadline } = req.body;
 
-    if (!goal || !time || !deadline) {
+    if (!goal || !rawTime || !deadline) {
         return res.status(400).json({ error: "Missing fields :c" });
+    }
+
+    const time = Number(rawTime);
+
+    if (!Number.isFinite(time) || time > 30 || time <= 0) {
+        return res.status(400).json({ error: "Time must be a number greater than 0 and less than 30 hours (give me feedback if this is too low)"});
     }
 
     let userTimeZone = "UTC"
@@ -284,6 +290,7 @@ app.post("/api/ai/generate-events", authenticateGoogle, async (req, res) => {
         });  
 
         const events = rawEvents.data.items || [];
+        const busyRanges = [];
         let busySchedule = "";
         if (events.length > 0) {
             for (const event of events) {
@@ -295,6 +302,9 @@ app.post("/api/ai/generate-events", authenticateGoogle, async (req, res) => {
                 const formattedEnd = new Date(event.end.dateTime || event.end.date).toLocaleString("sv-SE", { timeZone: userTimeZone });
                 busySchedule += formattedEnd || "";
                 busySchedule += "\n";
+                if (event.start.dateTime && event.end.dateTime) {
+                    busyRanges.push({ start: formattedStart.replace(" ", "T"), end: formattedEnd.replace(" ", "T") });
+                }
             }
         }
 
@@ -335,8 +345,8 @@ app.post("/api/ai/generate-events", authenticateGoogle, async (req, res) => {
                     items: {
                         type: Type.OBJECT,
                         properties: {
-                            summary: { type: Type.STRING},
-                            description: { type: Type.STRING},
+                            summary: { type: Type.STRING, description: "Title of the task. Limit this to 30 characters."},
+                            description: { type: Type.STRING, description: "Description of the event. Limit this to 100 characters."},
                             startISO: { type: Type.STRING, description: "Start time in ISO 8601 format (YYYY-MM-DDTHH:mm:ss)" },
                             endISO: { type: Type.STRING, description: "End time in ISO 8601 format (YYYY-MM-DDTHH:mm:ss)"},
                         },
@@ -355,37 +365,141 @@ app.post("/api/ai/generate-events", authenticateGoogle, async (req, res) => {
             return res.status(500).json({ error: "Invalid response format from AI :c" });
         }
 
-        const createdEvents = []
+        if (!Array.isArray(schedule)) {
+            console.log("Invalid ai response, not an array !??!");
+            return res.status(500).json({ error: "Invalid ai response" });
+        }
+
+        schedule = schedule.slice(0, 20);
+
+        const validItems = [];
+
+        const currentISO = formattedCurrentDate.replace(" ", "T");
+        const deadlineISO = formattedDeadline.replace(" ", "T");
+        const dateRegex = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/;
         
         for (const item of schedule) {
-            const event = {
-                summary: item.summary,
-                description: item.description || "Created with sharcPlanner AI :3",
-                start: {
-                    dateTime: item.startISO,
-                    timeZone: userTimeZone,
-                }, 
-                end: {
-                    dateTime: item.endISO,
-                    timeZone: userTimeZone,
-                },
-            };
             try {
-                const calendarResponse = await calendar.events.insert({
-                calendarId: "primary",
-                requestBody: event,
-                });
+                if (typeof item.summary !== "string" || typeof item.startISO !== "string" || typeof item.endISO !== "string") {
+                    console.log("an AI response is a not string !!");
+                    continue;
+                }
 
-                createdEvents.push({
-                summary: item.summary,
-                link: calendarResponse.data.htmlLink,
-                start: calendarResponse.data.start,
-                end: calendarResponse.data.end
+                if (!dateRegex.test(item.startISO) || !dateRegex.test(item.endISO)) {
+                    console.log("theres an invalid AI date format");
+                    continue;
+                }
+
+                if (item.summary.trim().length === 0) {
+                    console.log("an AI summary is blank");
+                    continue;
+                }
+
+                if (item.startISO >= item.endISO) {
+                    console.log("an ai event's start was after the end");
+                    continue;
+                }
+
+                if (item.startISO <= currentISO) {
+                    console.log("an ai event start was in the past");
+                    continue;
+                }
+
+                if (item.endISO > deadlineISO) {
+                    console.log("an ai event end was after the deadline");
+                    continue;
+                }
+
+                let description = "Created with sharcPlanner AI :3";
+                if (item.description && typeof item.description === "string") {
+                    description = item.description.slice(0, 100);
+                }
+
+                
+
+                validItems.push({
+                    summary: item.summary.slice(0, 30),
+                    description: description,
+                    start: {
+                        dateTime: item.startISO,
+                        timeZone: userTimeZone,
+                    }, 
+                    end: { 
+                        dateTime: item.endISO, 
+                        timeZone: userTimeZone,
+                    },
                 });
             } catch (error) {
-                console.log("error inserting an AI event:", error);
+                console.log("error validating AI response:", error);
             }
-        }  
+        }
+
+        validItems.sort((a, b) => a.start.dateTime.localeCompare(b.start.dateTime));
+
+        const keptItems = [];
+        let lastEnd = "";
+        let totalTime = 0;
+
+        for (const item of validItems) {
+            if (item.start.dateTime < lastEnd) 
+            {
+                console.log("AI event overlaps with a previous AI event");
+                continue;
+            } 
+            if (busyRanges.some(range => item.start.dateTime < range.end && item.end.dateTime > range.start)) {
+                console.log("AI event overlaps with existing event");
+                continue;
+            }
+            keptItems.push(item);
+            lastEnd = item.end.dateTime;
+            totalTime += Date.parse(item.end.dateTime+"Z") - Date.parse(item.start.dateTime+"Z");
+        }
+
+        if (keptItems.length === 0 || totalTime === 0) {
+            return res.status(200).json({ schedule: [], message: "couldnt build a valid schedule, please try fewer hours or further deadline" })
+        }
+
+        totalTime = totalTime/1000/60 // convert to mins
+
+        if (totalTime*1.15 < time*60) {
+            return res.status(200).json({ schedule: [], message: `could only schedule ${Math.round(totalTime)} out of ${Math.round(time*60)} minutes. Canceled.` })
+        }
+
+        while (totalTime > time*60*1.15) {
+            if (keptItems.length === 1) {
+                break;
+            }
+            const itemTime = (Date.parse(keptItems.at(-1).end.dateTime+"Z") - Date.parse(keptItems.at(-1).start.dateTime+"Z"))/60000;
+            if ((totalTime-itemTime)*1.15 < time*60) {
+                break;
+            }
+            keptItems.pop();
+            totalTime -= itemTime;
+        }
+
+        const createdEvents = [];
+
+        for (const event of keptItems) {
+            try {
+                const response = await calendar.events.insert({
+                    calendarId: "primary",
+                    requestBody: event,
+                }); 
+                createdEvents.push({
+                    summary: response.data.summary,
+                    link: response.data.htmlLink,
+                    start: response.data.start,
+                    end: response.data.end,
+                });
+            } catch (error) {
+                console.log("Failed to insert an AI event");
+            }
+        }
+
+        if (createdEvents.length === 0) {
+            return res.status(200).json({ schedule: [], message: "couldnt build a valid schedule, please try fewer hours or further deadline" })
+        }
+
 
         res.json({
             message: "schedule generated and added to calendar yippie", 

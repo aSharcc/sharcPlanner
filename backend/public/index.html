@@ -95,7 +95,7 @@
                         </label>
                         <label for="ai-time">
                             Time (Hours)
-                            <input id="ai-time" name="ai-time" type="number" min="0.1" step="any" required>
+                            <input id="ai-time" name="ai-time" type="number" min="0.1" step="any" max="30" required>
                         </label>
                     <div class="grid">
                         <label for="ai-deadline-date">
@@ -533,7 +533,7 @@
 
                             if (response.ok) {
                                 if (result.schedule.length === 0) {
-                                    showFlash("No results created", "bad");
+                                    showFlash(result.message || "No results created", "bad");
                                     return;  
                                 }
                                 console.log("ai plan added successfully", result);  
