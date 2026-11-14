@@ -5,6 +5,7 @@ import { GoogleGenAI, Type } from "@google/genai";
 import session from "express-session";
 import pg from "pg";
 import connectPgSimple from "connect-pg-simple";
+import { validate as uuidValidate} from "uuid";
 
 const app = express(); // start the webapp with express
 if (process.env.NODE_ENV === "production") {
@@ -467,13 +468,13 @@ app.post("/api/ai/generate-events", authenticateGoogle, async (req, res) => {
 
         while (totalTime > time*60*1.15) {
             if (keptItems.length === 1) {
-                break;
+                break; 
             }
             const itemTime = (Date.parse(keptItems.at(-1).end.dateTime+"Z") - Date.parse(keptItems.at(-1).start.dateTime+"Z"))/60000;
             if ((totalTime-itemTime)*1.15 < time*60) {
                 break;
             }
-            keptItems.pop();
+            keptItems.pop(); 
             totalTime -= itemTime;
         }
 
@@ -586,30 +587,103 @@ app.get("/api/group/:id", async (req, res) => {
         if (result.rows.length === 0) {
             return res.status(404).json({ error: "No group events found for that ID" });
         }
-        const event = result.rows[0]; 
+        const event = result.rows[0];  
         res.json(event);
     } catch (error) {
-        console.error(":c Error getting group event: ", error);
+        console.error(":c Error getting group event: ", error);  
         res.status(500).json({ error: ":c Failed to get group event :c" });
     }
 }); 
 
 app.post("/api/group/:id/submit", async (req, res) => {
     const eventId = req.params.id;
-    const { participant_name, available_slots } = req.body;
-    if (!participant_name || !available_slots || !Array.isArray(available_slots)) {
+    const { participant_name: rawName, available_slots } = req.body;
+    const currentDate = new Date();
+    if (!rawName || !available_slots) {
         return res.status(400).json({ error: "Missing fields :c" });
     }
+
+    if (!uuidValidate(eventId)) {
+        return res.status(400).json({ error: "Invalid event ID" });
+    }
+
+    if (typeof rawName !== "string") {
+        return res.status(400).json({ error: "Name is invalid" });
+    }
+
+    const participant_name = rawName.trim();
+
+    if (participant_name.length > 50 || participant_name.length <= 0) {
+        return res.status(400).json({ error: "Name must be between 1 and 50 characters" });
+    }
+
+    if (!Array.isArray(available_slots)) {
+        return res.status(400).json({ error: "Available slots array is invalid" });
+    }
+
+    if (available_slots.length === 0) {
+        return res.status(400).json({ error: "Please input available slots" });
+    } 
+ 
+    if (available_slots.length > 100) {
+        return res.status(400).json({ error: "Invalid available slots" });
+    }
+
     try {
         const result = await pool.query("SELECT * FROM group_events WHERE id = $1", [eventId]);
         if (result.rows.length === 0) {
             return res.status(404).json({ error: "No group events found for that ID" });
         }
-        const event = result.rows[0]; 
-        if (event.range_end.getTime() < new Date().getTime) {
-            return res.status(404).json({ error: "Range has passed." });
+        const event = result.rows[0];
+        if (event.range_end.getTime() < new Date().getTime()) {
+            return res.status(410).json({ error: "Range has passed." });
         }
-        await pool.query(`INSERT INTO group_availability (participant_name, available_slots, group_event_id) VALUES($1, $2, $3)`, [participant_name, JSON.stringify(available_slots), eventId]);
+        if (event.finalised) {
+            return res.status(400).json({ error: "Event has been finalised" })
+        }
+        let cleanedSlots = [];
+
+        for (const slot of available_slots) {
+            if (typeof slot !== "object" || Array.isArray(slot) || !slot) {
+                console.log("a slot was not a valid object");
+                continue;
+            }
+            if (typeof slot.startISO !== "string" || typeof slot.endISO !== "string") {
+                console.log("a slot ISO was not a string");
+                continue;
+            }
+            let slotEnd = new Date (slot.endISO);
+            let slotStart = new Date (slot.startISO);
+            if (isNaN(slotEnd.getTime()) || isNaN(slotStart.getTime())) {
+                console.log("could not get time for slot ISO");
+                continue;
+            }
+            if (slotEnd.getTime() < currentDate.getTime()) {
+                continue;
+            }
+            if (slotEnd.getTime() < event.range_start.getTime()) {
+                continue; 
+            }
+            if (slotStart.getTime() > event.range_end.getTime()) {
+                continue; 
+            }
+            if (slotStart.getTime() >= slotEnd.getTime()) {
+                continue;
+            }
+            slotStart = Math.max(slotStart, currentDate, event.range_start)
+            if (slotEnd.getTime() > event.range_end.getTime()) {
+                slotEnd = event.range_end;
+            }
+            if (slotStart.getTime() >= slotEnd.getTime()) {
+                continue;
+            }
+            cleanedSlots.push({ startISO: slotStart.toISOString(), endISO: slotEnd.toISOString() });
+        }
+
+        if (cleanedSlots.length === 0) {
+            return res.status(400).json({ error: "No valid slots" })
+        }
+        await pool.query(`INSERT INTO group_availability (participant_name, available_slots, group_event_id) VALUES($1, $2, $3)`, [participant_name, JSON.stringify(cleanedSlots), eventId]);
         res.json({ message: "Availability Submitted !!"});
     } catch (error) {
         console.error(":c Error submitting availability group event: ", error);
