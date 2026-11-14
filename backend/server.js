@@ -564,10 +564,32 @@ app.get("/api/group/fetch", authenticateGoogle, async (req, res) => {
 });
 
 app.post("/api/group/create", authenticateGoogle, async (req, res) => {
-    const { title, description, duration, startISO, endISO } = req.body;
-    if (!title || !duration || !startISO || !endISO) {
+    const { title: rawTitle, description: rawDescription, duration, startISO, endISO } = req.body;
+    if (!rawTitle || !duration || !startISO || !endISO) {
         return res.status(400).json({ error: "Missing fields :c" });
     }
+    if (typeof rawTitle !== "string" || typeof duration !== "number" || typeof startISO !== "string" || typeof endISO !== "string") {
+        return res.status(400).json({ error: "Invalid inputs"});
+    }
+    if (duration < 0 || duration > 30) {
+        return res.status(400).json({ error: "invalid duration" })
+    }
+    
+    const dateRegex = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/;
+    if (!dateRegex.test(startISO) || !dateRegex.test(endISO)) {
+        return res.status(400).json({ error: "invalid time input" });
+    }
+    if (startISO >= endISO) {
+        return res.status(400).json({ error: "start cant be after end" });
+    }
+
+    const title = title.trim().slice(0, 30);
+    let description = "";
+    if (rawDescription && typeof rawDescription === "string") {
+        description = rawDescription.trim.slice(0, 50);
+    }
+ 
+
     const creator_id = req.session.userId;
 
     try {
@@ -730,7 +752,13 @@ app.get("/api/group/:id/submissions", authenticateGoogle, async (req, res) => {
 app.post("/api/group/:id/generate_slots", authenticateGoogle, async (req, res) => {
     const eventId = req.params.id;
     const userId = req.session.userId;
-    const { additional_context } = req.body; 
+    const { additional_context: rawContext } = req.body; 
+
+    if (!additional_context || typeof additional_context !== "string") {
+        return res.status(400).json({ error: "invalid additional context" })
+    }
+
+    const additional_context = rawContext.trim().slice(0, 100);
 
     if (!uuidValidate(eventId)) {
         return res.status(400).json({ error: "Invalid event ID" });
@@ -913,6 +941,21 @@ app.post("/api/group/:id/finalise", authenticateGoogle, async (req, res) => {
     if (!selected_slot || !selected_slot.startISO || !selected_slot.endISO) {
         return res.status(400).json({ error: "Missing selected slot :c" });
     } 
+
+    if (typeof selected_slot.startISO !== "string" || typeof selected_slot.endISO !== "string") {
+        return res.status(400).json({ error: "invalid start and end dates/times" });
+    }
+
+    const dateRegex = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/;
+    if (!dateRegex.test(selected_slot.startISO) || !dateRegex.test(selected_slot.endISO)) {
+        console.log("theres an invalid slot to finalise date format");
+        return res.status(400).json({ error: "the slot to finalise's datetime was invalid" });
+    }
+    if (selected_slot.startISO >= selected_slot.endISO) {
+        console.log("the slot to finalise's start was after the end");
+        return res.status(400).json({ error: "the slot to finalise's start was after the end" });
+    }
+    
 
     try {
         const eventResult = await pool.query(`SELECT * FROM group_events WHERE id = $1`, [eventId]);
