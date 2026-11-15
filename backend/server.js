@@ -929,7 +929,7 @@ app.post("/api/group/:id/generate_slots", authenticateGoogle, async (req, res) =
                 });
             } catch (error) {
                 console.log("error validating AI response:", error);
-            }
+            } 
         }
 
  
@@ -966,6 +966,10 @@ app.post("/api/group/:id/finalise", authenticateGoogle, async (req, res) => {
     const startISO = new Date(selected_slot.startISO);
     const endISO = new Date(selected_slot.endISO);
 
+    if (isNaN(startISO.getTime()) || isNaN(endISO.getTime())) {
+        return res.status(400).json({ error: "invalid dates" })
+    }
+
     if (startISO.getTime() >= endISO.getTime()) {
         console.log("the slot to finalise's start was after the end");
         return res.status(400).json({ error: "the slot to finalise's start was after the end" });
@@ -992,10 +996,10 @@ app.post("/api/group/:id/finalise", authenticateGoogle, async (req, res) => {
             summary: eventDetails.title,
             description: eventDetails.description || "Group Event via sharcPlanner",
             start: {
-                dateTime: startISO,
+                dateTime: startISO.toISOString(),
             },
             end: {
-                dateTime: endISO,
+                dateTime: endISO.toISOString(),
             },
         };
 

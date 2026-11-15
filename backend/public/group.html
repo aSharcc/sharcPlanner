@@ -22,23 +22,27 @@
 
         <main class="container">
             <div id="flash-message" hidden style="border-left: 0.25rem solid; padding: 1rem; border-radius: var(--pico-border-radius); margin-bottom: var(--pico-spacing);"></div>
-            <div id="Loading" hidden></div>
-            <div id="Error" hidden></div>
-            <div id="Closed" hidden></div>
+            <div id="user-timezone"></div>
+            <div id="event-info" hidden></div>
+            <div id="Closed" hidden><h4>Event closed with no selected slot :c</h4></div>
             <div id="Finalised" hidden></div>
             <div id="Open" hidden>
                 <h3>Submit Availability</h3>
-                <div id="open-info"></div>
-                <div id="open-timezone"></div>
-                <form>
+                <form id="availability-form">
                     <label for="availability-name">
                         Name
                         <input name="availability-name" id="availability-name" required>
                     </label>
-                    <label for="availability-slot-1">
-                        Availability Slot 1
-                        <input name="availability-slot-1" id="availability-slot-1" required>
-                    </label>
+                    <div class="grid">
+                        <label for="availability-slot-1-start">
+                            Availability Slot 1 Start
+                            <input type="datetime-local" name="availability-slot-1-start" id="availability-slot-1-start" required>
+                        </label>
+                        <label for="availability-slot-1-end">
+                            Availability Slot 1 End
+                            <input type="datetime-local" name="availability-slot-1-end" id="availability-slot-1-end" required>
+                        </label>
+                    </div>
                     <div id="dynamic-slots"></div>
                     <button type="button" id="add-slot">Add another slot</button>
                     <button type="submit">Submit Availability</button>
@@ -64,43 +68,211 @@
         
         <script>
             const homeHeading = document.getElementById("home-heading");
-            const openInfoDiv = document.getElementById("open-info");
-            const openTimezoneDiv = document.getElementById("open-timezone");
+            const infoDiv = document.getElementById("event-info");
+            const timezoneDiv = document.getElementById("user-timezone");
+            const openDiv = document.getElementById("Open");
+            const finalisedDiv = document.getElementById("Finalised");
+            const closedDiv = document.getElementById("Closed");
             const addAvailabilitySlot = document.getElementById("add-slot");
             const dynamicInputs = document.getElementById("dynamic-slots");
+            const flashBox = document.getElementById("flash-message");
 
             const userTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
             const id = new URLSearchParams(window.location.search).get("id");
             let slotCount = 1;
+            let flashTimeout = null;
+
+            function showFlash(message, type) {
+                if (flashTimeout) clearTimeout(flashTimeout);
+                flashBox.innerText = message;
+                flashBox.hidden = false;
+
+                if (type === "bad") { 
+                    flashBox.style.borderLeftColor = "red";
+                } else if (type === "good") {
+                    flashBox.style.borderLeftColor = "green";
+                }
+
+                flashTimeout = setTimeout(() => {
+                    flashBox.hidden = true;
+                }, 4000);
+            }
+
+            function escapeHTML(str) {
+                if (typeof str !== "string") {
+                        return "";
+                    }
+                return str.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;");
+            }
 
             async function getEvent() {
                 const response = await fetch(`/api/group/${id}`);
-                openInfoDiv.innerHTML = "";
-                
+
+                if (response.status === 404) {
+                    showFlash("No group events found for that ID", "bad");
+                    return;
+                }
+                if (response.status === 400) {
+                    showFlash("Invalid event ID", "bad");
+                    return;
+                }
+                if (response.status === 500) {
+                    showFlash(`${result.error}`, "bad")
+                    return;
+                }
+
+
+                const result = await response.json();
+
+                const range_end = new Date(result.range_end);
+                const range_start = new Date(result.range_start);
+
+                if (result.finalised === true) {
+                    finalisedDiv.innerHTML = `<h3>Event Slot Finalised !!</h3><p><strong>Chosen Slot: ${result.finalised_slot.startISO.toLocaleString("sv-SE", {timeZone: userTimeZone})} to ${result.finalised_slot.endISO.toLocaleString("sv-SE", {timeZone: userTimeZone})}</strong></p>`
+                    finalisedDiv.hidden = false;
+                } else if (range_end.getTime() < (new Date()).getTime()) {
+                    closedDiv.hidden = false;
+                    return;
+                } else {
+                    openDiv.hidden = false;
+                }
+                infoDiv.innerHTML = `<h4>${escapeHTML(result.title)}</h4><p>${escapeHTML(result.description)}</p><p>${result.duration}</p><p>${range_start.toLocaleString("sv-SE", {timeZone: userTimeZone})} to ${range_end.toLocaleString("sv-SE", {timeZone: userTimeZone})}</p>`;
+                infoDiv.hidden = false;
             }
 
             homeHeading.addEventListener("click", () => {
                 window.location.href = "/";
             });
             addAvailabilitySlot.addEventListener("click", () => {
+                if (slotCount >= 100) {
+                    return;
+                }
                 slotCount++;
                 const newRow = document.createElement("div");
+                newRow.className = "grid";
 
-                const newLabel = document.createElement("label");
-                newLabel.setAttribute("for", `availability-slot-${slotCount}`);
-                newLabel.textContent = `Availability Slot ${slotCount}`;
+                const newLabelStart = document.createElement("label");
+                newLabelStart.setAttribute("for", `availability-slot-${slotCount}-start`);
+                newLabelStart.textContent = `Availability Slot ${slotCount} Start`;
 
-                const newInput = document.createElement("input");
-                newInput.name = `availability-slot-${slotCount}`;
-                newInput.id = `availability-slot-${slotCount}`;
+                const newInputStart = document.createElement("input");
+                newInputStart.name = `availability-slot-${slotCount}-start`;
+                newInputStart.id = `availability-slot-${slotCount}-start`;
+                newInputStart.type = "datetime-local";
 
-                newLabel.appendChild(newInput);
-                newRow.appendChild(newLabel);
+                newLabelStart.appendChild(newInputStart);
+                newRow.appendChild(newLabelStart);
+
+                const newLabelEnd = document.createElement("label");
+                newLabelEnd.setAttribute("for", `availability-slot-${slotCount}-end`);
+                newLabelEnd.textContent = `Availability Slot ${slotCount} End`;
+
+                const newInputEnd = document.createElement("input");
+                newInputEnd.name = `availability-slot-${slotCount}-end`;
+                newInputEnd.id = `availability-slot-${slotCount}-end`;
+                newInputEnd.type = "datetime-local";
+
+                newLabelEnd.appendChild(newInputEnd);
+                newRow.appendChild(newLabelEnd);
+
+                const newDeleteButton = document.createElement("button");
+                newDeleteButton.id = `availability-slot-${slotCount}-delete`;
+                newDeleteButton.type = "button";
+                newDeleteButton.innerText = "Delete Slot"
+
+                newRow.appendChild(newDeleteButton);
+
                 dynamicInputs.appendChild(newRow);
+
+                newDeleteButton.addEventListener("click", () => {
+                    dynamicInputs.removeChild(newRow);
+                });
+            });
+
+            document.addEventListener("submit", async (event) => {
+                event.preventDefault();
+
+                    const form = event.target; 
+                    const formData = new FormData(form);
+                    const data = Object.fromEntries(formData);
+                    const button = form.querySelector("button[type=submit]");
+                    const originalText = button.innerText;
+
+                    try {
+                        if (form.id === "availability-form") {
+                            button.disabled = true;
+                            if (!data["availability-name"]) {
+                                showFlash("Please fill in name", "bad");
+                                return;
+                            }
+                            let validSlots = [];
+                            for (let slot = 1; slot <= slotCount; slot++) {
+                                if (!data[`availability-slot-${slot}-start`] || !data[`availability-slot-${slot}-end`]) {
+                                    console.log("missing slot date for", slot);
+                                    continue;
+                                }
+                                const slotStart = new Date(data[`availability-slot-${slot}-start`]);
+                                const slotEnd = new Date(data[`availability-slot-${slot}-end`]);
+
+                                if (isNaN(slotStart) || isNaN(slotEnd)) {
+                                    console.log("invalid slot date for", slot);
+                                    continue;
+                                }
+
+                                if (slotStart.getTime() >= slotEnd.getTime()) {
+                                    showFlash("at least 1 slot failed due to invalid times");
+                                    continue;
+                                }
+
+                                validSlots.push({ startISO: slotStart.toISOString(), endISO: slotEnd.toISOString() });
+                            }
+                            const payload = {
+                                participant_name: data["availability-name"],
+                                available_slots: validSlots
+                            };
+
+                            const response = await fetch(`/api/group/${id}/submit`, {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify(payload)
+                            });
+
+                            const result = await response.json();
+
+                            if (response.status === 400) {
+                                showFlash(`${result.error}`, "bad")
+                                return;
+                            }
+                            if (response.status === 410) {
+                                showFlash(`${result.error}`, "bad")
+                                return;
+                            }
+                            if (response.status === 500) {
+                                showFlash(`${result.error}`, "bad")
+                                return;
+                            }
+                            if (response.status === 404) {
+                                showFlash(`${result.error}`, "bad")
+                                return;
+                            }
+                            if (response.ok) {
+                                form.reset();
+                                showFlash("availability submitted successfully !!", "good");
+                                form.hidden = true;
+                            }
+                        }
+                    } catch (error) {
+                        console.error("sumbission error: ", error);
+                        showFlash(`:c error: ${error}`, "bad"); 
+                    } finally {
+                        button.disabled = false;
+                        button.innerText = originalText;
+                    }
             });
 
             // Initial stuffs
-            openTimezoneDiv.innerHTML = `<p><strong>Your inputs will use the timezone ${userTimeZone}</strong> (pls tell me if this is wrong)</p>`
+            timezoneDiv.innerHTML = `<p><strong>This will be using the timezone ${userTimeZone}</strong> (this should be ur timezone, pls tell me if this is wrong)</p>`;
+            getEvent();
             
         </script>
     </body>

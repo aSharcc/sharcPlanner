@@ -121,6 +121,7 @@
             </div>
 
             <div id="group-container" hidden>
+                <div id="manage-group-event"></div>
                 <div id="your-group-events" hidden></div>
                 <h3>Create Group Events</h3>
                 <p>Find a common free time slot for multiple people.</p>
@@ -188,12 +189,13 @@
                 const groupLinkDiv = document.getElementById("group-link");
                 const yourGroupEventsDiv = document.getElementById("your-group-events");
                 const openTimezoneDiv = document.getElementById("timezone");
+                const groupManageDiv = document.getElementById("manage-group-event");
 
                 const userTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
                 
 
                 function escapeHTML(str) {
-                if (typeof str !== "string") {
+                    if (typeof str !== "string") {
                         return "";
                     }
                     return str.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;");
@@ -273,7 +275,69 @@
 
                             const newManageButton = document.getElementById(`group-manage-btn${event.id}`);
                             newManageButton.addEventListener("click", async () => {
-                                const response = await fetch("");
+                                const response = await fetch(`/api/group/${event.id}/submissions`);
+                                const data = await response.json();
+                                if (response.status === 200) {
+                                    groupManageDiv.innerHTML = `<h4><strong>${escapeHTML(event.title)}</strong></h4><p>No Submissions Yet !!</p>`;
+                                    return;
+                                }
+                                if (response.ok) {
+                                    let submissions = "<p>Submissions: "
+                                    for (const sumbission of data.availabilities) {
+                                        submissions += escapeHTML(sumbission.participant_name) + ", ";
+                                    }
+                                    submissions += `</p>`;
+                                    groupManageDiv.innerHTML = `<h4><strong>${escapeHTML(event.title)}</strong></h4>${submissions}`;
+
+                                    const additionalContextInput = document.createElement("input");
+                                    additionalContextInput.type = "text";
+                                    additionalContextInput.maxLength = "100";
+
+                                    groupManageDiv.appendChild(additionalContextInput);
+
+                                    const generateSlotsButton = document.createElement("button");
+                                    generateSlotsButton.innerText = "Generate Slots";
+                                    generateSlotsButton.type = "button";
+
+                                    groupManageDiv.appendChild(generateSlotsButton);
+
+                                    generateSlotsButton.addEventListener("click", async () => {
+                                        const payload = {
+                                            additional_context: additionalContextInput.value,
+                                        };
+                                        const response = await fetch(`/api/group/${event.id}/generate_slots`, {
+                                            method: "POST",
+                                            headers: { "Content-Type": "application/json" },
+                                            body: JSON.stringify(payload)
+                                        });
+                                        const data = await response.json();
+                                        if (response.status === 429) {
+                                            showFlash(data.error, "bad");
+                                            return;
+                                        }
+                                        if (response.status === 200) {
+                                            showFlash(data.error, "bad");
+                                        }
+                                        if (response.ok) {
+                                            if (data.slots.length === 0 || data.count === 0) {
+                                                showFlash("Could not generate any slots, please try again !!");
+                                                return;
+                                            }
+                                            if (response.ok) {
+                                                const newFieldset = document.createElement("fieldset");
+                                                const newLegend = document.createElement("legend");
+                                                newLegend.innerText = "Select a Slot";
+                                                newFieldset.appendChild(newLegend);
+                                                for (const slot of data.slots) {
+                                                    const newRadioOption = document.createElement("input");
+                                                    newRadioOption.type = "radio";
+                                                    newRadioOption.name = "slot-radio";
+                                                    
+                                                }
+                                            }
+                                        }
+                                    });
+                                }
                             });
                         }
                     } catch (error) {
