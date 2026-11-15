@@ -70,7 +70,14 @@
             const dynamicInputs = document.getElementById("dynamic-slots");
 
             const userTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+            const id = new URLSearchParams(window.location.search).get("id");
             let slotCount = 1;
+
+            async function getEvent() {
+                const response = await fetch(`/api/group/${id}`);
+                openInfoDiv.innerHTML = "";
+                
+            }
 
             homeHeading.addEventListener("click", () => {
                 window.location.href = "/";
@@ -94,6 +101,7 @@
 
             // Initial stuffs
             openTimezoneDiv.innerHTML = `<p><strong>Your inputs will use the timezone ${userTimeZone}</strong> (pls tell me if this is wrong)</p>`
+            
         </script>
     </body>
 </html>

@@ -127,11 +127,11 @@
                 <form id="group-form">
                     <label for="group-title">
                         Title of Event 
-                        <input type="text" id="group-title" name="group-title" required>
+                        <input type="text" id="group-title" name="group-title" maxlength="30" required>
                     </label>
                     <label for="group-description">
                         Description of Event
-                        <input type="text" id="group-description" name="group-description">
+                        <input type="text" id="group-description" name="group-description" maxlength="50">
                     </label>
                     <label for="group-duration">
                         Required Duration (In Hours)
@@ -247,7 +247,7 @@
                         yourGroupEventsDiv.innerHTML = "";
                         let contents = "<h4>Your Group Events</h4>";
                         for (const event of events) {
-                            contents += `<div style="display: inline-block; padding: 1rem;"><p><strong>${escapeHTML(event.title)}</strong></p><button id="group-share-btn${event.id}" data-link="${window.location.origin}/group.html?id=${event.id}">Share Group Event</button></div>`
+                            contents += `<div style="display: inline-block; padding: 1rem;"><p><strong>${escapeHTML(event.title)}</strong></p><button id="group-share-btn${event.id}" data-link="${window.location.origin}/group.html?id=${event.id}">Share Group Event</button><button id="group-manage-btn${event.id}">Manage</button></div>`
                             }
                         yourGroupEventsDiv.innerHTML=contents;
                         yourGroupEventsDiv.hidden = false;
@@ -260,14 +260,20 @@
                                 newShareButton.textContent="Copied !!";
                                     setTimeout(() => {
                                         newShareButton.textContent=originalText;
-                                    }, 1000)
+                                    }, 1000);
+
                                 }).catch(err => {
                                     console.error("failed t o copy: ", err);
                                     newShareButton.textContent="Failed to Copy :/";
                                     setTimeout(() => {
                                         newShareButton.textContent=originalText;
-                                    }, 1000)
+                                    }, 1000);
                                 }); 
+                            });
+
+                            const newManageButton = document.getElementById(`group-manage-btn${event.id}`);
+                            newManageButton.addEventListener("click", async () => {
+                                const response = await fetch("");
                             });
                         }
                     } catch (error) {

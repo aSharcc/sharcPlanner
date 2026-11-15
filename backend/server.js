@@ -571,29 +571,39 @@ app.post("/api/group/create", authenticateGoogle, async (req, res) => {
     if (typeof rawTitle !== "string" || typeof duration !== "number" || typeof startISO !== "string" || typeof endISO !== "string") {
         return res.status(400).json({ error: "Invalid inputs"});
     }
-    if (duration < 0 || duration > 30) {
-        return res.status(400).json({ error: "invalid duration" })
+    if (duration <= 0 || duration > 30) {
+        return res.status(400).json({ error: "invalid duration" });
     }
     
-    const dateRegex = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/;
-    if (!dateRegex.test(startISO) || !dateRegex.test(endISO)) {
-        return res.status(400).json({ error: "invalid time input" });
+    const startDate = new Date(startISO);
+    const endDate = new Date(endISO);
+    if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+        return res.status(400).json({ error: "invalid dates" });
     }
-    if (startISO >= endISO) {
+    if (startDate.getTime() >= endDate.getTime()) {
         return res.status(400).json({ error: "start cant be after end" });
     }
+    if (endDate.getTime() < (new Date()).getTime()) {
+        return res.status(400).json({ error: "End date must be in the future" });
+    }
+    if ((endDate.getTime() - startDate.getTime())/1000/60/60 < duration) {
+        return res.status(400).json({ error: "range must be longer than the duration" });
+    }
+    if ((endDate.getTime() - startDate.getTime())/1000/60/60/24 > 60) {
+        return res.status(400).json({ error: "range must be under 60 days" });
+    }
 
-    const title = title.trim().slice(0, 30);
+    const title = rawTitle.trim().slice(0, 30);
     let description = "";
     if (rawDescription && typeof rawDescription === "string") {
-        description = rawDescription.trim.slice(0, 50);
+        description = rawDescription.trim().slice(0, 50);
     }
  
 
     const creator_id = req.session.userId;
 
     try {
-        const result = await pool.query(`INSERT INTO group_events (title, description, duration, range_start, range_end, creator_id, finalised) VALUES($1, $2, $3, $4, $5, $6, false) RETURNING id`, [title, description, duration, startISO, endISO, creator_id]);
+        const result = await pool.query(`INSERT INTO group_events (title, description, duration, range_start, range_end, creator_id, finalised) VALUES($1, $2, $3, $4, $5, $6, false) RETURNING id`, [title, description, duration, startDate.toISOString(), endDate.toISOString(), creator_id]);
         const eventId = result.rows[0].id;
         res.json({ message: "Group event created !!", eventId: eventId });
     } catch (error) {
@@ -754,11 +764,11 @@ app.post("/api/group/:id/generate_slots", authenticateGoogle, async (req, res) =
     const userId = req.session.userId;
     const { additional_context: rawContext } = req.body; 
 
-    if (!additional_context || typeof additional_context !== "string") {
-        return res.status(400).json({ error: "invalid additional context" })
-    }
 
-    const additional_context = rawContext.trim().slice(0, 100);
+    let additional_context = "";
+    if (rawContext && typeof rawContext === "string") {
+        additional_context = rawContext.trim().slice(0, 100);
+    }
 
     if (!uuidValidate(eventId)) {
         return res.status(400).json({ error: "Invalid event ID" });
@@ -814,17 +824,17 @@ app.post("/api/group/:id/generate_slots", authenticateGoogle, async (req, res) =
 
         const prompt = `Event Title: ${eventDetails.title}
                         Required Duration: ${eventDetails.duration} hours
-                        Range Start: ${eventDetails.range_start}
-                        Range End: ${eventDetails.range_end}
+                        Range Start: ${eventDetails.range_start.toISOString()}
+                        Range End: ${eventDetails.range_end.toISOString()}
                         Current Date: ${new Date().toISOString()}
 
                         Participant availabilities:
                         ${JSON.stringify(groupAvailability.rows, null, 2)}
 
-                        Addtional Context added: 
-                        ${additional_context}
+                        Addtional Context added:  
+                        ${additional_context || "none"}
                         `;
-
+ 
         const response = await ai.models.generateContent({
             model: process.env.GEMINI_MODEL || "models/gemini-3.5-flash-lite",
             contents: prompt,
@@ -841,7 +851,7 @@ app.post("/api/group/:id/generate_slots", authenticateGoogle, async (req, res) =
                             endISO: { type: Type.STRING, description: "End time in ISO 8601 format (YYYY-MM-DDTHH:mm:ssZ)"},
                             rating: { type: Type.NUMBER, description: "Rating from 1-10 for the slot."}
                         },
-                        required: ["startISO", "endISO"],
+                        required: ["startISO", "endISO", "rating"],
                     },
                 },
             }
@@ -866,6 +876,7 @@ app.post("/api/group/:id/generate_slots", authenticateGoogle, async (req, res) =
 
         for (const slot of suggestedSlots) {
             try {
+                
                 if (typeof slot.startISO !== "string" || typeof slot.endISO !== "string" || typeof slot.rating !== "number") {
                     console.log("an AI slot array thing is a not a valid type !!");
                     continue;
@@ -876,40 +887,45 @@ app.post("/api/group/:id/generate_slots", authenticateGoogle, async (req, res) =
                     continue;
                 }
 
-                if (slot.startISO >= slot.endISO) {
+                const startISO = new Date(slot.startISO);
+                const endISO = new Date(slot.endISO);
+
+                if (startISO.getTime() >= endISO.getTime()) {
                     console.log("an ai slot's start was after the end");
-                    continue;
+                    continue; 
                 }
 
-                if (slot.startISO <= (new Date()).toISOString()) {
+                if (startISO.getTime() <= (new Date()).getTime()) {
                     console.log("an ai slot start was in the past");
                     continue;
                 }
 
-                if (slot.startISO <= eventDetails.range_start) {
-                    console.log("an ai slot start was in the past");
+                if (startISO.getTime() <= eventDetails.range_start.getTime()) {
+                    console.log("an ai slot start was in the past"); 
                     continue;
-                }
-
-                if (slot.endISO > eventDetails.range_end) {
+                }   
+ 
+                if (endISO.getTime() > eventDetails.range_end.getTime()) {
                     console.log("an ai slot end was after the deadline");
                     continue;
                 }
 
-                if (isNaN(slot.rating) || slot.rating < 0 || slot.rating > 10) {
-                    console.log("an ai slot had an invalid rating");
-                    continue;
+                let rating = NaN
+                if (!isNaN(slot.rating) && slot.rating >= 0 && slot.rating <= 10) {
+                    rating = slot.rating;
                 }
 
-                if ((slot.startISO.getTime() - slot.startISO.getTime())/1000/60/60 !== eventDetails.duration) {
+                const createdDuration = (endISO.getTime() - startISO.getTime())/1000/60/60
+
+                if (createdDuration > eventDetails.duration*1.15 || createdDuration < eventDetails.duration*0.85) {
                     console.log("theres an invalid AI slot duration");
                     continue;
                 }
 
                 validSlots.push({
-                    startISO: slot.startISO,
-                    end: slot.endISO,
-                    rating: slot.rating,
+                    startISO: startISO.toISOString(),
+                    endISO: endISO.toISOString(),
+                    rating: rating,
                 });
             } catch (error) {
                 console.log("error validating AI response:", error);
@@ -920,7 +936,8 @@ app.post("/api/group/:id/generate_slots", authenticateGoogle, async (req, res) =
         // Return the optimal times for selection
 
         res.json({ message: "Slots generated successfully.",
-            slots: suggestedSlots
+            slots: validSlots,
+            count: validSlots.length
         });
     } catch (error) {
         console.error(":c Error generating slots for group event: ", error);
@@ -946,12 +963,10 @@ app.post("/api/group/:id/finalise", authenticateGoogle, async (req, res) => {
         return res.status(400).json({ error: "invalid start and end dates/times" });
     }
 
-    const dateRegex = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/;
-    if (!dateRegex.test(selected_slot.startISO) || !dateRegex.test(selected_slot.endISO)) {
-        console.log("theres an invalid slot to finalise date format");
-        return res.status(400).json({ error: "the slot to finalise's datetime was invalid" });
-    }
-    if (selected_slot.startISO >= selected_slot.endISO) {
+    const startISO = new Date(selected_slot.startISO);
+    const endISO = new Date(selected_slot.endISO);
+
+    if (startISO.getTime() >= endISO.getTime()) {
         console.log("the slot to finalise's start was after the end");
         return res.status(400).json({ error: "the slot to finalise's start was after the end" });
     }
@@ -977,10 +992,10 @@ app.post("/api/group/:id/finalise", authenticateGoogle, async (req, res) => {
             summary: eventDetails.title,
             description: eventDetails.description || "Group Event via sharcPlanner",
             start: {
-                dateTime: selected_slot.startISO,
+                dateTime: startISO,
             },
             end: {
-                dateTime: selected_slot.endISO,
+                dateTime: endISO,
             },
         };
 
