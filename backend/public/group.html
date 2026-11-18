@@ -107,7 +107,7 @@
 
             async function getEvent() {
                 const response = await fetch(`/api/group/${id}`);
-
+                const result = await response.json();
                 if (response.status === 404) {
                     showFlash("No group events found for that ID", "bad");
                     return;
@@ -121,14 +121,11 @@
                     return;
                 }
 
-
-                const result = await response.json();
-
                 const range_end = new Date(result.range_end);
                 const range_start = new Date(result.range_start);
 
                 if (result.finalised === true) {
-                    finalisedDiv.innerHTML = `<h3>Event Slot Finalised !!</h3><p><strong>Chosen Slot: ${result.finalised_slot.startISO.toLocaleString("sv-SE", {timeZone: userTimeZone})} to ${result.finalised_slot.endISO.toLocaleString("sv-SE", {timeZone: userTimeZone})}</strong></p>`
+                    finalisedDiv.innerHTML = `<h3>Event Slot Finalised !!</h3><p><strong>Chosen Slot: ${new Date(result.finalised_slot.startISO).toLocaleString("sv-SE", {timeZone: userTimeZone})} to ${new Date(result.finalised_slot.endISO).toLocaleString("sv-SE", {timeZone: userTimeZone})}</strong></p>`
                     finalisedDiv.hidden = false;
                 } else if (range_end.getTime() < (new Date()).getTime()) {
                     closedDiv.hidden = false;
@@ -136,7 +133,7 @@
                 } else {
                     openDiv.hidden = false;
                 }
-                infoDiv.innerHTML = `<h4>${escapeHTML(result.title)}</h4><p>${escapeHTML(result.description)}</p><p>${result.duration}</p><p>${range_start.toLocaleString("sv-SE", {timeZone: userTimeZone})} to ${range_end.toLocaleString("sv-SE", {timeZone: userTimeZone})}</p>`;
+                infoDiv.innerHTML = `<h4>${escapeHTML(result.title)}</h4><p>${escapeHTML(result.description)}</p><p>${result.duration}</p><p>${new Date(range_start).toLocaleString("sv-SE", {timeZone: userTimeZone})} to ${new Date(range_end).toLocaleString("sv-SE", {timeZone: userTimeZone})}</p>`;
                 infoDiv.hidden = false;
             }
 
@@ -199,9 +196,9 @@
                     const originalText = button.innerText;
 
                     try {
-                        if (form.id === "availability-form") {
+                        if (form.id === "availability-form") { 
                             button.disabled = true;
-                            if (!data["availability-name"]) {
+                            if (!data["availability-name"]) { 
                                 showFlash("Please fill in name", "bad");
                                 return;
                             }
@@ -220,7 +217,7 @@
                                 }
 
                                 if (slotStart.getTime() >= slotEnd.getTime()) {
-                                    showFlash("at least 1 slot failed due to invalid times");
+                                    showFlash("at least 1 slot failed due to invalid times", "bad");
                                     continue;
                                 }
 

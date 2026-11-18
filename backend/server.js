@@ -967,7 +967,7 @@ app.post("/api/group/:id/finalise", authenticateGoogle, async (req, res) => {
     const endISO = new Date(selected_slot.endISO);
 
     if (isNaN(startISO.getTime()) || isNaN(endISO.getTime())) {
-        return res.status(400).json({ error: "invalid dates" })
+        return res.status(400).json({ error: "invalid dates" });
     }
 
     if (startISO.getTime() >= endISO.getTime()) {
@@ -989,7 +989,12 @@ app.post("/api/group/:id/finalise", authenticateGoogle, async (req, res) => {
             return res.json({ error: "Already finalised !!" });
         }
        
-        await pool.query(`UPDATE group_events SET finalised = TRUE, finalised_slot = $1 WHERE id = $2 `, [selected_slot, eventId]);
+        const result = await pool.query(`UPDATE group_events SET finalised = TRUE, finalised_slot = $1 WHERE id = $2 AND finalised = FALSE;`, [selected_slot, eventId]);
+
+        if (result.rowCount === 0) {
+            console.log("Did not update any rows, already finalised?");
+            return res.status().json({ error: "did not finalise, already finalised? please reload" });
+        }
 
         const calendar = google.calendar({ version:"v3", auth: req.authClient });
         const event = {
@@ -1034,5 +1039,5 @@ app.get("/api/auth/me", authenticateGoogle, async (req, res) => {
 });
  
 app.listen(PORT, () => {  
-    console.log(`Server running on port ${PORT} yippie !!`) // `` for formatting
+    console.log(`Server running on port ${PORT} yippie !!`); // `` for formatting
 });

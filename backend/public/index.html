@@ -190,6 +190,7 @@
                 const yourGroupEventsDiv = document.getElementById("your-group-events");
                 const openTimezoneDiv = document.getElementById("timezone");
                 const groupManageDiv = document.getElementById("manage-group-event");
+                let manageGroupID = "";
 
                 const userTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
                 
@@ -277,11 +278,16 @@
                             newManageButton.addEventListener("click", async () => {
                                 const response = await fetch(`/api/group/${event.id}/submissions`);
                                 const data = await response.json();
-                                if (response.status === 200) {
+                                if (!response.ok) {
+                                    showFlash(`${data.error}`, "bad")
+                                    return;
+                                }
+                                if (!data.availabilities) {
                                     groupManageDiv.innerHTML = `<h4><strong>${escapeHTML(event.title)}</strong></h4><p>No Submissions Yet !!</p>`;
                                     return;
                                 }
                                 if (response.ok) {
+                                    manageGroupID = event.id;
                                     let submissions = "<p>Submissions: "
                                     for (const sumbission of data.availabilities) {
                                         submissions += escapeHTML(sumbission.participant_name) + ", ";
@@ -300,6 +306,7 @@
                                     generateSlotsButton.type = "button";
 
                                     groupManageDiv.appendChild(generateSlotsButton);
+                                    groupManageDiv.hidden = false;
 
                                     generateSlotsButton.addEventListener("click", async () => {
                                         const payload = {
@@ -309,32 +316,42 @@
                                             method: "POST",
                                             headers: { "Content-Type": "application/json" },
                                             body: JSON.stringify(payload)
-                                        });
+                                        }); 
                                         const data = await response.json();
-                                        if (response.status === 429) {
+                                        if (response.status === 429) { 
+                                            showFlash(data.error, "bad");
+                                            return; 
+                                        }
+                                        if (data.error) {
                                             showFlash(data.error, "bad");
                                             return;
                                         }
-                                        if (response.status === 200) {
-                                            showFlash(data.error, "bad");
-                                        }
                                         if (response.ok) {
                                             if (data.slots.length === 0 || data.count === 0) {
-                                                showFlash("Could not generate any slots, please try again !!");
+                                                showFlash("Could not generate any slots, please try again !!", "bad");
                                                 return;
                                             }
-                                            if (response.ok) {
-                                                const newFieldset = document.createElement("fieldset");
-                                                const newLegend = document.createElement("legend");
-                                                newLegend.innerText = "Select a Slot";
-                                                newFieldset.appendChild(newLegend);
-                                                for (const slot of data.slots) {
-                                                    const newRadioOption = document.createElement("input");
-                                                    newRadioOption.type = "radio";
-                                                    newRadioOption.name = "slot-radio";
-                                                    
-                                                }
+                                            document.getElementById('finalise-form')?.remove();
+                                            const newForm = document.createElement("form");
+                                            newForm.id = "finalise-form";
+                                            const newText = document.createElement("p");
+                                            newText.innerText = "Select a Slot";
+                                            newForm.appendChild(newText);
+                                            for (const slot of data.slots) {
+                                                const newLabel = document.createElement("label");
+                                                newLabel.innerText = `${new Date(slot.startISO).toLocaleString("sv-SE", {timeZone: userTimeZone})} to ${new Date(slot.endISO).toLocaleString("sv-SE", {timeZone: userTimeZone})}. Rating: ${slot.rating || "N/A"}`;
+                                                const newRadioOption = document.createElement("input");
+                                                newRadioOption.type = "radio";
+                                                newRadioOption.name = "slot-radio";
+                                                newRadioOption.value = JSON.stringify({ startISO: slot.startISO, endISO: slot.endISO });
+                                                newLabel.appendChild(newRadioOption);
+                                                newForm.appendChild(newLabel);
                                             }
+                                            const newButton = document.createElement("button");
+                                            newButton.innerText = "Finalise Selected Slot";
+                                            newButton.type = "submit";
+                                            newForm.appendChild(newButton);
+                                            groupManageDiv.appendChild(newForm);
                                         }
                                     });
                                 }
@@ -541,7 +558,7 @@
                                     return;
                             }
 
-                            const result = await response.json()
+                            const result = await response.json();
  
                             if (response.ok) {
                                 console.log("Manual event added successfully"); 
@@ -669,8 +686,8 @@
 
                             if (startDate.getTime() > endDate.getTime()) {
                                 showFlash("End date must be after start date !!", "bad");
-                                return; 
-                            }  
+                                return;
+                            }
  
                             const payload = {
                                 title: data["group-title"],
@@ -690,7 +707,7 @@
                             });
 
                             if (response.status === 401) {
-                                showFlash("please login first !!");
+                                showFlash("please login first !!", "bad");
                                 return;
                             }
 
@@ -720,7 +737,7 @@
                                         setTimeout(() => {
                                             newShareButton.textContent=originalText;
                                         }, 1000)
-                                    }); 
+                                    });
                                 });
                                 fetchGroupEvents();
                             } else { 
@@ -728,10 +745,42 @@
                                 console.log(response);
                                 showFlash(`Failed to create group event (Status: ${response.status})`, "bad");
                             }
-                        } 
+                        } else if (form.id === "finalise-form") {
+                            if (!data["slot-radio"]) {
+                                showFlash("No slot selected for finalising", "bad");
+                                return;
+                            }
+                            if (manageGroupID === "") {
+                                showFlash("No group id stored", "bad");
+                                return;
+                            }
+                            const selected_slot = JSON.parse(data["slot-radio"]);
+                            const response = await fetch(`/api/group/${manageGroupID}/finalise`, {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ selected_slot: {startISO: selected_slot.startISO, endISO: selected_slot.endISO } })
+                            });
+                            const result = await response.json();
+                            if (response.status === 500) {
+                                showFlash("Event may be saved but not on your google calendar, please reload", "bad");
+                                return;
+                            }
+                            if (!response.ok) {
+                                showFlash(`${result.error}`, "bad")
+                                return;
+                            }
+                            if (result.error) {
+                                showFlash(`${result.error}`, "bad")
+                                return;
+                            }
+                            
+                            fetchGroupEvents();
+                            groupManageDiv.innerHTML = "";
+                            groupManageDiv.hidden = true;
+                        }
                     } catch (error) {
                         console.error("sumbission error: ", error);
-                        showFlash(`:c error: ${error}`, "bad"); 
+                        showFlash(`:c error: ${error}`, "bad");
                     } finally {
                         button.disabled = false;
                         button.innerText = originalText;
