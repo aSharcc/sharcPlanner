@@ -567,7 +567,7 @@
                                 showFlash("Yippie event created", "good");
                                 resultsList.innerHTML = "";
                                 let resultsHTML = "";
-                                resultsHTML += (`<li><strong>${escapeHTML(result.event.summary)}: </strong><a href="${result.event.htmlLink}">Link</a><br>
+                                resultsHTML += (`<li><strong>${escapeHTML(result.event.summary)}: </strong><a href="${escapeHTML(result.event.htmlLink)}">Link</a><br>
                                                     <strong>Start: </strong>${new Date(result.event.start.dateTime).toLocaleString([], { timeStyle: "short", dateStyle: "medium" })}<br>
                                                     <strong>End: </strong>${new Date(result.event.end.dateTime).toLocaleString([], { timeStyle: "short", dateStyle: "medium" })}</li>`);
                                 resultsList.innerHTML = resultsHTML;

@@ -133,7 +133,7 @@
                 } else {
                     openDiv.hidden = false;
                 }
-                infoDiv.innerHTML = `<h4>${escapeHTML(result.title)}</h4><p>${escapeHTML(result.description)}</p><p>${result.duration}</p><p>${new Date(range_start).toLocaleString("sv-SE", {timeZone: userTimeZone})} to ${new Date(range_end).toLocaleString("sv-SE", {timeZone: userTimeZone})}</p>`;
+                infoDiv.innerHTML = `<h4>${escapeHTML(result.title)}</h4><p>${escapeHTML(result.description)}</p><p>${result.duration} hours</p><p>${new Date(range_start).toLocaleString("sv-SE", {timeZone: userTimeZone})} to ${new Date(range_end).toLocaleString("sv-SE", {timeZone: userTimeZone})}</p>`;
                 infoDiv.hidden = false;
             }
 

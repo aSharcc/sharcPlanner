@@ -57,7 +57,10 @@ app.use(session({
 
 function authenticateGoogle(req, res, next) {
     if (!req.session.userTokens) {
-        return res.status(401).json({ error : "Not Authenticated, go to /api/auth/google first !!" });
+        return res.status(401).json({ error : "Not Authenticated, login first !!" });
+    }
+    if (!req.session.userId) {
+        return res.status(401).json({ error : "Not Authenticated, login first !!" });
     }
 
     const authClient = new google.auth.OAuth2({
@@ -540,6 +543,9 @@ app.post("/api/feedback", authenticateGoogle, async  (req, res) => {
     if (!message) {
         return res.status(400).json({ error: "Feedback message cannot be empty !!" })
     }
+    if (message.length > 1000) {
+        return res.status(400).json({ error: "Feedback too long, please cap at 1000 characters !!" })
+    }
     try {
         await pool.query(`INSERT INTO feedback (message, session_id) VALUES ($1, $2)`, [message, req.sessionID]);
         res.json({ message: "Thank you for your feedback !! c:" });
@@ -681,7 +687,7 @@ app.post("/api/group/:id/submit", async (req, res) => {
 
         for (const slot of available_slots) {
             if (typeof slot !== "object" || Array.isArray(slot) || !slot) {
-                console.log("a slot was not a valid object");
+                console.log("a slot was not a valid object"); 
                 continue;
             }
             if (typeof slot.startISO !== "string" || typeof slot.endISO !== "string") {
@@ -718,6 +724,11 @@ app.post("/api/group/:id/submit", async (req, res) => {
 
         if (cleanedSlots.length === 0) {
             return res.status(400).json({ error: "No valid slots" })
+        }
+        const rows = await pool.query(`SELECT COUNT(*) FROM group_availability WHERE group_event_id = $1`, [eventId]);
+        if (parseInt(result.rows[0].count, 10) > 50) {
+            console.log("Too many group availabilities submitted");
+            return res.status(400).json({ error: "availabilitysubmissions are full !!" });
         }
         await pool.query(`INSERT INTO group_availability (participant_name, available_slots, group_event_id) VALUES($1, $2, $3)`, [participant_name, JSON.stringify(cleanedSlots), eventId]);
         res.json({ message: "Availability Submitted !!"});
@@ -993,7 +1004,7 @@ app.post("/api/group/:id/finalise", authenticateGoogle, async (req, res) => {
 
         if (result.rowCount === 0) {
             console.log("Did not update any rows, already finalised?");
-            return res.status().json({ error: "did not finalise, already finalised? please reload" });
+            return res.status(400).json({ error: "did not finalise, already finalised? please reload" });
         }
 
         const calendar = google.calendar({ version:"v3", auth: req.authClient });
