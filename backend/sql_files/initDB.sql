@@ -36,8 +36,8 @@ CREATE TABLE IF NOT EXISTS group_events (
     title TEXT NOT NULL,
     description TEXT,
     duration NUMERIC NOT NULL,
-    range_start TIMESTAMPZ NOT NULL,
-    range_end TIMESTAMPZ NOT NULL,
+    range_start TIMESTAMPTZ NOT NULL,
+    range_end TIMESTAMPTZ NOT NULL,
     finalised BOOLEAN NOT NULL DEFAULT FALSE,
     finalised_slot JSONB,
     date_created TIMESTAMP DEFAULT CURRENT_TIMESTAMP
