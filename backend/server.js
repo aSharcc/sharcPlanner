@@ -6,6 +6,7 @@ import session from "express-session";
 import pg from "pg";
 import connectPgSimple from "connect-pg-simple";
 import { validate as uuidValidate} from "uuid";
+import crypto from "crypto";
 
 const app = express(); // start the webapp with express
 if (process.env.NODE_ENV === "production") {
@@ -48,7 +49,7 @@ app.use(session({
     resave: false,
     saveUninitialized: false,
     cookie: {
-        secure: false,
+        secure: process.env.NODE_ENV === "production",
         httpOnly: true,
         sameSite: "lax",    
         maxAge: 1000 * 60 * 60 * 24 * 30 // 30 days
@@ -85,26 +86,38 @@ function authenticateGoogle(req, res, next) {
 }
 
 app.get("/api/auth/google", (req, res) => {
-    const authUrl = auth.generateAuthUrl({
-        access_type: "offline", 
-        scope: SCOPES,
-        prompt: "consent"
+    const state = crypto.randomBytes(32).toString('hex');
+    req.session.oauthState = state;
+    req.session.save((error) => {
+        if (error) {
+            console.error("error saving oauth session:", error);
+            return res.status(500).json({ error: "Failed to authenticate" })
+        }
+        const authUrl = auth.generateAuthUrl({
+            access_type: "offline", 
+            scope: SCOPES,
+            prompt: "consent",
+            state: state
+        });
+        res.redirect(authUrl);
     });
-    res.redirect(authUrl);
 }); 
  
 app.get("/api/auth/callback", async (req, res) => {
-    const code = req.query.code;
-    const error = req.query.error;
+    const { code, error, state } = req.query;
     console.log(req.secure);
     console.log(req.protocol);
-    console.log(req.get("x-forwarded-proto")); 
+    console.log(req.get("x-forwarded-proto"));
     if (error) { // if the auth returned an error
         return res.status(400).json({ error: `google auth failed: ${error} :c` });
     }
     if (!code) { // ensuring it returned a code
         return res.status(400).json({ error: "No authorisation code given :c" });
     }
+    if (!state || state !== req.session.oauthState) {
+        return res.status(403).json({ error: "Invalid state parameter. Possible CRSF attack" });
+    }
+    delete req.session.oauthState;
     try {
         const { tokens } = await auth.getToken(code);
 
@@ -275,14 +288,14 @@ app.post("/api/ai/generate-events", authenticateGoogle, async (req, res) => {
     }
 
     const dailyLimit = 10;
-
-    if (req.session.aiUsage.count >= dailyLimit) {
-        return res.status(429).json({ error: "Daily AI limit reached :c, try again tomorrow !!" });
+    try {
+        const result = await pool.query("INSERT INTO ai_usage (user_id, usage_date, request_count) VALUES($1, CURRENT_DATE, 1) ON CONFLICT (user_id, usage_date) DO UPDATE SET request_count = request_count + 1 WHERE request_count < $2  RETURNING request_count", [req.session.userId, dailyLimit]);
+        if (await result.rowCount === 0) {
+            return res.status(429).json({ error: "Daily AI limit reached :/, try again tomorrow" });
+        }
+    } catch (error) {
+        return res.status(500).json({ error: "server error: ai usage limiter failed" });
     }
-
-    req.session.aiUsage.count += 1;
-    req.session.save();
-
 
     try {
         const calendar = google.calendar({ version: "v3", auth: req.authClient });
@@ -290,7 +303,7 @@ app.post("/api/ai/generate-events", authenticateGoogle, async (req, res) => {
             calendarId: "primary",
             timeMin: new Date().toISOString(),
             maxResults: 40,
-            timeMax: deadlineDate.toISOString(),
+            timeMax: deadlineDate.toISOString(), 
             singleEvents: true,
             orderBy: "startTime",
         });  
@@ -519,9 +532,12 @@ app.post("/api/ai/generate-events", authenticateGoogle, async (req, res) => {
 });
 
 app.get("/api/auth/status", (req, res) => {
-    if (req.session.userTokens) res.json( { isAuthenticated: true });
-    else res.json({ isAuthenticated: false });
-});
+    if (req.session.userTokens && req.session.userId) {
+        res.json( { isAuthenticated: true }); 
+    } else {
+        res.json({ isAuthenticated: false });
+    }
+    });
 
 app.get("/api/themes/current", async (req, res) => {
     try {
@@ -727,10 +743,11 @@ app.post("/api/group/:id/submit", async (req, res) => {
         if (cleanedSlots.length === 0) {
             return res.status(400).json({ error: "No valid slots" })
         }
-        const rows = await pool.query(`SELECT COUNT(*) FROM group_availability WHERE group_event_id = $1`, [eventId]);
-        if (parseInt(result.rows[0].count, 10) > 50) {
+        const countResult = await pool.query(`SELECT COUNT(*) FROM group_availability WHERE group_event_id = $1`, [eventId]);
+        const submissionCount = parseInt(countResult.rows[0].count, 10);
+        if (submissionCount >= 50) {
             console.log("Too many group availabilities submitted");
-            return res.status(400).json({ error: "availabilitysubmissions are full !!" });
+            return res.status(400).json({ error: "availability submissions are full !!" });
         }
         await pool.query(`INSERT INTO group_availability (participant_name, available_slots, group_event_id) VALUES($1, $2, $3)`, [participant_name, JSON.stringify(cleanedSlots), eventId]);
         res.json({ message: "Availability Submitted !!"});
@@ -765,9 +782,9 @@ app.get("/api/group/:id/submissions", authenticateGoogle, async (req, res) => {
             return res.status(200).json({ error: "No availability submitted yet !!" });
         }
 
-        return res.json({ availabilities: groupAvailability.rows, sumbissions: groupAvailability.rows.length });
+        return res.json({ availabilities: groupAvailability.rows, submissions: groupAvailability.rows.length });
     } catch (error) {
-        console.error(":c Error getting sumbissions group event: ", error);
+        console.error(":c Error getting submissions group event: ", error);
         res.status(500).json({ error: ":c Failed to get submissions for group event :c" });
     }
 });
@@ -814,13 +831,14 @@ app.post("/api/group/:id/generate_slots", authenticateGoogle, async (req, res) =
         }
 
         const dailyLimit = 10;
-
-        if (req.session.aiUsage.count >= dailyLimit) {
-            return res.status(429).json({ error: "Daily AI limit reached :c, try again tomorrow !!" });
+        try {
+            const result = await pool.query("INSERT INTO ai_usage (user_id, usage_date, request_count) VALUES($1, CURRENT_DATE, 1) ON CONFLICT (user_id, usage_date) DO UPDATE SET request_count = request_count + 1 WHERE request_count < $2  RETURNING request_count", [req.session.userId, dailyLimit]);
+            if (await result.rowCount === 0) {
+                return res.status(429).json({ error: "Daily AI limit reached :/, try again tomorrow" });
+            }
+        } catch (error) {
+            return res.status(500).json({ error: "server error: ai usage limiter failed" });
         }
-
-        req.session.aiUsage.count += 1;
-        req.session.save();
 
         const systemInstruction = `You are a scheduling assistant. Your task is to analyse the participants' available time slots and find the best overlapping windows to fit the required event duration ensuring everything fits within the given range. Also, rank these slots 1-10.
 
@@ -840,8 +858,8 @@ app.post("/api/group/:id/generate_slots", authenticateGoogle, async (req, res) =
         const prompt = `Event Title: ${eventDetails.title}
                         Required Duration: ${eventDetails.duration} hours
                         Range Start: ${eventDetails.range_start.toISOString().replace(".000Z", "Z")}
-                        Range End: ${eventDetails.range_end.toISOString().replace("000Z", "Z")}
-                        Current Date: ${new Date().toISOString().replace("000Z", "Z")}
+                        Range End: ${eventDetails.range_end.toISOString().replace(".000Z", "Z")}
+                        Current Date: ${new Date().toISOString().replace(".000Z", "Z")}
 
                         Participant availabilities:
                         ${JSON.stringify(groupAvailability.rows, null, 2)}
@@ -915,8 +933,8 @@ app.post("/api/group/:id/generate_slots", authenticateGoogle, async (req, res) =
                     continue;
                 }
 
-                if (startISO.getTime() <= eventDetails.range_start.getTime()) {
-                    console.log("an ai slot start was in the past"); 
+                if (startISO.getTime() < eventDetails.range_start.getTime()) {
+                    console.log("an ai slot start was before the range start"); 
                     continue;
                 }   
  
@@ -925,8 +943,8 @@ app.post("/api/group/:id/generate_slots", authenticateGoogle, async (req, res) =
                     continue;
                 }
 
-                let rating = NaN
-                if (!isNaN(slot.rating) && slot.rating >= 0 && slot.rating <= 10) {
+                let rating = NaN;
+                if (!slot.rating || !isNaN(slot.rating) && slot.rating >= 1 && slot.rating <= 10) {
                     rating = slot.rating;
                 }
 
@@ -946,7 +964,6 @@ app.post("/api/group/:id/generate_slots", authenticateGoogle, async (req, res) =
                 console.log("error validating AI response:", error);
             } 
         }
-
  
         // Return the optimal times for selection
 
@@ -990,21 +1007,45 @@ app.post("/api/group/:id/finalise", authenticateGoogle, async (req, res) => {
         return res.status(400).json({ error: "the slot to finalise's start was after the end" });
     }
     
-
+ 
     try {
         const eventResult = await pool.query(`SELECT * FROM group_events WHERE id = $1`, [eventId]);
-        if (eventResult.rows.length === 0) {
+        if (eventResult.rows.length === 0) { 
             return res.status(404).json({ error: "No group events found for that ID" });
         }
-        const eventDetails = eventResult.rows[0];
+        const eventDetails = eventResult.rows[0];  
         if (eventDetails.creator_id !== userId) {
             return res.status(403).json({ error: "You are not the creator." });
         }
         if (eventDetails.finalised === true) {
             return res.json({ error: "Already finalised !!" });
         }
+        const createdDuration = (endISO.getTime() - startISO.getTime())/1000/60/60;
+        if (createdDuration > eventDetails.duration*1.15 || createdDuration < eventDetails.duration*0.85) {
+            console.log("theres an invalid AI slot duration to finalise");
+            return res.status(400).json({ error: "Invalid duration for slot provided" });
+        }
+        if (startISO.getTime() <= (new Date()).getTime()) {
+            console.log("an ai slot to finalise's start was in the past");
+            return res.status(400).json({ error: "selected slot was in the past" });
+        }
+
+        if (startISO.getTime() < eventDetails.range_start.getTime()) {
+            console.log("an ai slot to finalise's start was in the past"); 
+            return res.status(400).json({ error: "the start of the slot was before the range start" });
+        }   
+
+        if (endISO.getTime() > eventDetails.range_end.getTime()) {
+            console.log("an ai slot to finalise's end was after the deadline");
+            return res.status(400).json({ error: "the end of the slot was after the range end" });
+        }
+
+        const normalisedSlot = {
+            startISO: startISO.toISOString(),
+            endISO: endISO.toISOString()
+        };
        
-        const result = await pool.query(`UPDATE group_events SET finalised = TRUE, finalised_slot = $1 WHERE id = $2 AND finalised = FALSE;`, [selected_slot, eventId]);
+        const result = await pool.query(`UPDATE group_events SET finalised = TRUE, finalised_slot = $1 WHERE id = $2 AND finalised = FALSE;`, [JSON.stringify(normalisedSlot), eventId]);
 
         if (result.rowCount === 0) {
             console.log("Did not update any rows, already finalised?");

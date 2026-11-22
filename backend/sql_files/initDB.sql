@@ -49,3 +49,10 @@ CREATE TABLE IF NOT EXISTS group_availability (
     participant_name TEXT NOT NULL,
     available_slots JSONB
 );
+
+CREATE TABLE IF NOT EXISTS ai_usage (
+    user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+    usage_date DATE NOT NULL DEFAULT CURRENT_DATE,
+    request_count INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY(user_id, usage_date)
+);

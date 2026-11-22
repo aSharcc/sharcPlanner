@@ -50,17 +50,6 @@
             </div>
 
             <!--Footer Stuff-->
-            <details>
-                <summary>User Feedback. Current Focus: Timezones</summary>
-                <form id="feedback-form">
-                    <label for="feedback-message">
-                        Feedback Message
-                        <textarea id="feedback-message" name="message"></textarea>
-                    </label>
-                    <button type="submit">Submit Feedback</button>
-                </form>
-            </details>
-
             <footer>
                 <a href="/privacy.html" target="_blank" >Privacy Policy / TOS / README</a>
             </footer>
@@ -106,35 +95,44 @@
             }
 
             async function getEvent() {
-                const response = await fetch(`/api/group/${id}`);
-                const result = await response.json();
-                if (response.status === 404) {
-                    showFlash("No group events found for that ID", "bad");
+                if (!id) {
+                    showFlash("No group event id given", "bad");
                     return;
                 }
-                if (response.status === 400) {
-                    showFlash("Invalid event ID", "bad");
-                    return;
-                }
-                if (response.status === 500) {
-                    showFlash(`${result.error}`, "bad")
-                    return;
-                }
+                try {
+                    const response = await fetch(`/api/group/${id}`);
+                    const result = await response.json();
+                    if (response.status === 404) {
+                        showFlash("No group events found for that ID", "bad");
+                        return;
+                    }
+                    if (response.status === 400) {
+                        showFlash("Invalid event ID", "bad");
+                        return;
+                    }
+                    if (response.status === 500) {
+                        showFlash(`${result.error}`, "bad")
+                        return;
+                    }
 
-                const range_end = new Date(result.range_end);
-                const range_start = new Date(result.range_start);
+                    const range_end = new Date(result.range_end);
+                    const range_start = new Date(result.range_start);
 
-                if (result.finalised === true) {
-                    finalisedDiv.innerHTML = `<h3>Event Slot Finalised !!</h3><p><strong>Chosen Slot: ${new Date(result.finalised_slot.startISO).toLocaleString("sv-SE", {timeZone: userTimeZone})} to ${new Date(result.finalised_slot.endISO).toLocaleString("sv-SE", {timeZone: userTimeZone})}</strong></p>`
-                    finalisedDiv.hidden = false;
-                } else if (range_end.getTime() < (new Date()).getTime()) {
-                    closedDiv.hidden = false;
-                    return;
-                } else {
-                    openDiv.hidden = false;
+                    if (result.finalised === true) {
+                        finalisedDiv.innerHTML = `<h3>Event Slot Finalised !!</h3><p><strong>Chosen Slot: ${new Date(result.finalised_slot.startISO).toLocaleString("sv-SE", {timeZone: userTimeZone})} to ${new Date(result.finalised_slot.endISO).toLocaleString("sv-SE", {timeZone: userTimeZone})}</strong></p>`
+                        finalisedDiv.hidden = false;
+                    } else if (range_end.getTime() < (new Date()).getTime()) {
+                        closedDiv.hidden = false;
+                        return;
+                    } else {
+                        openDiv.hidden = false;
+                    }
+                    infoDiv.innerHTML = `<h4>${escapeHTML(result.title)}</h4><p>${escapeHTML(result.description)}</p><p>${result.duration} hours</p><p>${new Date(range_start).toLocaleString("sv-SE", {timeZone: userTimeZone})} to ${new Date(range_end).toLocaleString("sv-SE", {timeZone: userTimeZone})}</p>`;
+                    infoDiv.hidden = false;
+                } catch (error) {
+                    console.error("Error fetching group event: ", error);
+                    showFlash("failed to get group event details, please reload to try again", "bad")
                 }
-                infoDiv.innerHTML = `<h4>${escapeHTML(result.title)}</h4><p>${escapeHTML(result.description)}</p><p>${result.duration} hours</p><p>${new Date(range_start).toLocaleString("sv-SE", {timeZone: userTimeZone})} to ${new Date(range_end).toLocaleString("sv-SE", {timeZone: userTimeZone})}</p>`;
-                infoDiv.hidden = false;
             }
 
             homeHeading.addEventListener("click", () => {
@@ -156,6 +154,7 @@
                 newInputStart.name = `availability-slot-${slotCount}-start`;
                 newInputStart.id = `availability-slot-${slotCount}-start`;
                 newInputStart.type = "datetime-local";
+                
 
                 newLabelStart.appendChild(newInputStart);
                 newRow.appendChild(newLabelStart);
@@ -168,6 +167,7 @@
                 newInputEnd.name = `availability-slot-${slotCount}-end`;
                 newInputEnd.id = `availability-slot-${slotCount}-end`;
                 newInputEnd.type = "datetime-local";
+                
 
                 newLabelEnd.appendChild(newInputEnd);
                 newRow.appendChild(newLabelEnd);
@@ -223,6 +223,12 @@
 
                                 validSlots.push({ startISO: slotStart.toISOString(), endISO: slotEnd.toISOString() });
                             }
+
+                            if (validSlots.length === 0) {
+                                showFlash("No valid slots provided", "bad");
+                                return;
+                            }
+
                             const payload = {
                                 participant_name: data["availability-name"],
                                 available_slots: validSlots

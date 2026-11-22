@@ -116,7 +116,7 @@
                 <h3>Upcoming Calendar Events</h3>
                 <button id="fetch-events-button">Refresh Events</button> 
                 <ul id="fetched-events-list" style="padding: 1rem;">
-                    <li>Loading Events...</li>
+                    <li>Loading Events...</li> 
                 </ul> 
             </div>
 
@@ -152,7 +152,7 @@
             </div>
 
             <details>
-                <summary>User Feedback. Current Focus: Timezones</summary>
+                <summary>User Feedback. Current Focus: Group Events</summary>
                 <form id="feedback-form">
                     <label for="feedback-message">
                         Feedback Message
@@ -232,15 +232,15 @@
                         tabView.className = "outline";
                         tabCreate.className = "outline";
                         tabGroup.className = "contrast";
-                        fetchGroupEvents();
+                        fetchGroupEvents(); 
                     }
                 }
 
-                async function fetchGroupEvents() {
+                async function fetchGroupEvents() { 
                     try {
                         const response = await fetch("/api/group/fetch");
                         if (response.status === 401) {
-                            showFlash("Failed to get user info", "bad");
+                            showFlash("Please login first", "bad");
                             return;
                         }
                         if (response.status === 404) {
@@ -284,7 +284,9 @@
                                 }
                                 if (!data.availabilities) {
                                     groupManageDiv.innerHTML = `<h4><strong>${escapeHTML(event.title)}</strong></h4><p>No Submissions Yet !!</p>`;
-                                    return;
+                                    groupManageDiv.hidden = false;
+                                    manageGroupID = event.id; 
+                                    return; 
                                 }
                                 if (response.ok) {
                                     manageGroupID = event.id;
@@ -339,7 +341,7 @@
                                             newForm.appendChild(newText);
                                             for (const slot of data.slots) {
                                                 const newLabel = document.createElement("label");
-                                                newLabel.innerText = `${new Date(slot.startISO).toLocaleString("sv-SE", {timeZone: userTimeZone})} to ${new Date(slot.endISO).toLocaleString("sv-SE", {timeZone: userTimeZone})}. Rating: ${slot.rating || "N/A"}`;
+                                                newLabel.innerText = `${new Date(slot.startISO).toLocaleString("sv-SE", {timeZone: userTimeZone})} to ${new Date(slot.endISO).toLocaleString("sv-SE", {timeZone: userTimeZone})}. Rating: ${slot.rating ?? "N/A"}`;
                                                 const newRadioOption = document.createElement("input");
                                                 newRadioOption.type = "radio";
                                                 newRadioOption.name = "slot-radio";
