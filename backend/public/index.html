@@ -123,6 +123,7 @@
             <div id="group-container" hidden>
                 <div id="manage-group-event"></div>
                 <div id="your-group-events" hidden></div>
+                <hr>
                 <h3>Create Group Events</h3>
                 <p>Find a common free time slot for multiple people.</p>
                 <form id="group-form">
@@ -151,6 +152,8 @@
                 <div id="group-link" hidden style="padding-bottom: 1rem;"></div>
             </div>
 
+            <hr>
+
             <details>
                 <summary>User Feedback. Current Focus: Group Events</summary>
                 <form id="feedback-form">
@@ -161,6 +164,8 @@
                     <button type="submit">Submit Feedback</button>
                 </form>
             </details>
+
+            <hr>
 
             <footer>
                 <a href="/privacy.html" target="_blank" >Privacy Policy / TOS / README</a>
@@ -247,10 +252,13 @@
                             return;
                         }
                         const events = await response.json();
+                        if (events.length === 0) {
+                            return;
+                        }
                         yourGroupEventsDiv.innerHTML = "";
-                        let contents = "<h4>Your Group Events</h4>";
+                        let contents = "<hr><h4>Your Group Events</h4>";
                         for (const event of events) {
-                            contents += `<div style="display: inline-block; padding: 1rem;"><p><strong>${escapeHTML(event.title)}</strong></p><button id="group-share-btn${event.id}" data-link="${window.location.origin}/group.html?id=${event.id}">Share Group Event</button><button id="group-manage-btn${event.id}">Manage</button></div>`
+                            contents += `<div style="display: inline-block; padding: 1rem;"><p><strong>${escapeHTML(event.title)}</strong></p><button style="margin-right: 1rem;" id="group-share-btn${event.id}" data-link="${window.location.origin}/group.html?id=${event.id}">Share Group Event</button><button id="group-manage-btn${event.id}">Manage</button></div>`
                             }
                         yourGroupEventsDiv.innerHTML=contents;
                         yourGroupEventsDiv.hidden = false;
@@ -276,6 +284,14 @@
 
                             const newManageButton = document.getElementById(`group-manage-btn${event.id}`);
                             newManageButton.addEventListener("click", async () => {
+                                if (event.finalised === true) {
+                                    groupManageDiv.innerHTML = `<hr><h4><strong>${escapeHTML(event.title)}</strong></h4><p><strong>Chosen Slot: ${new Date(event.finalised_slot.startISO).toLocaleString("sv-SE", {timeZone: userTimeZone})} to ${new Date(event.finalised_slot.endISO).toLocaleString("sv-SE", {timeZone: userTimeZone})}</strong></p>`
+                                    groupManageDiv.hidden = false;
+                                    const calendarSyncButton = document.createElement("button");
+                                    calendarSyncButton.innerText = "Add to Google Calendar";
+
+                                    groupManageDiv.appendChild(calendarSyncButton);
+                                }
                                 const response = await fetch(`/api/group/${event.id}/submissions`);
                                 const data = await response.json();
                                 if (!response.ok) {
@@ -283,25 +299,29 @@
                                     return;
                                 }
                                 if (!data.availabilities) {
-                                    groupManageDiv.innerHTML = `<h4><strong>${escapeHTML(event.title)}</strong></h4><p>No Submissions Yet !!</p>`;
+                                    groupManageDiv.innerHTML = `<hr><h4><strong>${escapeHTML(event.title)}</strong></h4><p>No Submissions Yet !!</p><hr>`;
                                     groupManageDiv.hidden = false;
                                     manageGroupID = event.id; 
                                     return; 
                                 }
                                 if (response.ok) {
                                     manageGroupID = event.id;
-                                    let submissions = "<p>Submissions: "
+                                    let submissions = "<p>Submissions From: "
                                     for (const sumbission of data.availabilities) {
                                         submissions += escapeHTML(sumbission.participant_name) + ", ";
                                     }
                                     submissions += `</p>`;
-                                    groupManageDiv.innerHTML = `<h4><strong>${escapeHTML(event.title)}</strong></h4>${submissions}`;
+                                    groupManageDiv.innerHTML = `<hr><h4><strong>${escapeHTML(event.title)}</strong></h4>${submissions}`;
+
+                                    const additionalContextLabel = document.createElement("label");
+                                    additionalContextLabel.innerText = "Addtitonal Context for ai (dont you date try inject stuff)";
 
                                     const additionalContextInput = document.createElement("input");
                                     additionalContextInput.type = "text";
                                     additionalContextInput.maxLength = "100";
 
-                                    groupManageDiv.appendChild(additionalContextInput);
+                                    additionalContextLabel.appendChild(additionalContextInput);
+                                    groupManageDiv.appendChild(additionalContextLabel);
 
                                     const generateSlotsButton = document.createElement("button");
                                     generateSlotsButton.innerText = "Generate Slots";

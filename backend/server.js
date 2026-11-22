@@ -46,7 +46,7 @@ app.use(session({
         port: process.env.DATABASE_PORT || 5432,
     }),
     secret: process.env.SESSION_SECRET || "defaultsecret",
-    resave: false,
+    resave: false, 
     saveUninitialized: false,
     cookie: {
         secure: process.env.NODE_ENV === "production",
@@ -289,11 +289,12 @@ app.post("/api/ai/generate-events", authenticateGoogle, async (req, res) => {
 
     const dailyLimit = 10;
     try {
-        const result = await pool.query("INSERT INTO ai_usage (user_id, usage_date, request_count) VALUES($1, CURRENT_DATE, 1) ON CONFLICT (user_id, usage_date) DO UPDATE SET request_count = request_count + 1 WHERE request_count < $2  RETURNING request_count", [req.session.userId, dailyLimit]);
+        const result = await pool.query("INSERT INTO ai_usage (user_id, usage_date, request_count) VALUES($1, CURRENT_DATE, 1) ON CONFLICT (user_id, usage_date) DO UPDATE SET request_count = ai_usage.request_count + 1 WHERE ai_usage.request_count < $2  RETURNING request_count", [req.session.userId, dailyLimit]);
         if (await result.rowCount === 0) {
             return res.status(429).json({ error: "Daily AI limit reached :/, try again tomorrow" });
         }
     } catch (error) {
+        console.log("ai usage error:", error);
         return res.status(500).json({ error: "server error: ai usage limiter failed" });
     }
 
@@ -578,7 +579,7 @@ app.get("/api/group/fetch", authenticateGoogle, async (req, res) => {
     try {
         const result = await pool.query(`SELECT * FROM group_events WHERE creator_id = $1`, [userId]);
         if (result.rows.length === 0) {
-            return res.status(404).json({ error: "No group events found for that ID" });
+            return res.status(200).json([]);
         }
         res.json(result.rows);
     } catch (error) {
@@ -832,11 +833,12 @@ app.post("/api/group/:id/generate_slots", authenticateGoogle, async (req, res) =
 
         const dailyLimit = 10;
         try {
-            const result = await pool.query("INSERT INTO ai_usage (user_id, usage_date, request_count) VALUES($1, CURRENT_DATE, 1) ON CONFLICT (user_id, usage_date) DO UPDATE SET request_count = request_count + 1 WHERE request_count < $2  RETURNING request_count", [req.session.userId, dailyLimit]);
+            const result = await pool.query("INSERT INTO ai_usage (user_id, usage_date, request_count) VALUES($1, CURRENT_DATE, 1) ON CONFLICT (user_id, usage_date) DO UPDATE SET request_count = ai_usage.request_count + 1 WHERE ai_usage.request_count < $2  RETURNING request_count", [req.session.userId, dailyLimit]);
             if (await result.rowCount === 0) {
                 return res.status(429).json({ error: "Daily AI limit reached :/, try again tomorrow" });
             }
         } catch (error) {
+            console.log(error);
             return res.status(500).json({ error: "server error: ai usage limiter failed" });
         }
 
