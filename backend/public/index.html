@@ -283,14 +283,14 @@
                             });
 
                             const newManageButton = document.getElementById(`group-manage-btn${event.id}`);
-                            newManageButton.addEventListener("click", async () => {
+                            newManageButton.addEventListener("click", async () => { 
                                 if (event.finalised === true) {
                                     groupManageDiv.innerHTML = `<hr><h4><strong>${escapeHTML(event.title)}</strong></h4><p><strong>Chosen Slot: ${new Date(event.finalised_slot.startISO).toLocaleString("sv-SE", {timeZone: userTimeZone})} to ${new Date(event.finalised_slot.endISO).toLocaleString("sv-SE", {timeZone: userTimeZone})}</strong></p>`
                                     groupManageDiv.hidden = false;
                                     const calendarSyncButton = document.createElement("button");
-                                    calendarSyncButton.innerText = "Add to Google Calendar";
-
-                                    groupManageDiv.appendChild(calendarSyncButton);
+                                    calendarSyncButton.innerText = "Add to Google Calendar"; 
+ 
+                                    groupManageDiv.appendChild(calendarSyncButton); 
                                 }
                                 const response = await fetch(`/api/group/${event.id}/submissions`);
                                 const data = await response.json();
