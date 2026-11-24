@@ -41,7 +41,23 @@ const publicGetLimit = rateLimit({
     legacyHeaders: false
 });
 
-const strictLimit = rateLimit({
+const feedbackLimit = rateLimit({
+    windowMs: 60*60*1000,
+    limit: 10,
+    message: "Rate limited !! Please try again later. (tell me if this activated under normal use so i can change it)",
+    standardHeaders: "draft-8",
+    legacyHeaders: false
+});
+
+const availabilitySumbitLimit = rateLimit({
+    windowMs: 60*60*1000,
+    limit: 10,
+    message: "Rate limited !! Please try again later. (tell me if this activated under normal use so i can change it)",
+    standardHeaders: "draft-8",
+    legacyHeaders: false
+});
+
+const groupCreateLimit = rateLimit({
     windowMs: 60*60*1000,
     limit: 10,
     message: "Rate limited !! Please try again later. (tell me if this activated under normal use so i can change it)",
@@ -574,7 +590,7 @@ app.get("/api/themes/current", async (req, res) => {
     }
 });
 
-app.post("/api/feedback", strictLimit, authenticateGoogle, async  (req, res) => {
+app.post("/api/feedback", feedbackLimit, authenticateGoogle, async  (req, res) => {
     const { message } = req.body;
     if (!message) {
         return res.status(400).json({ error: "Feedback message cannot be empty !!" })
@@ -605,7 +621,7 @@ app.get("/api/group/fetch", authenticateGoogle, async (req, res) => {
     }
 });
 
-app.post("/api/group/create", strictLimit, authenticateGoogle, async (req, res) => {
+app.post("/api/group/create", groupCreateLimit, authenticateGoogle, async (req, res) => {
     const { title: rawTitle, description: rawDescription, duration, startISO, endISO } = req.body;
     if (!rawTitle || !duration || !startISO || !endISO) {
         return res.status(400).json({ error: "Missing fields :c" });
@@ -673,7 +689,7 @@ app.get("/api/group/:id", publicGetLimit, async (req, res) => {
     }
 }); 
 
-app.post("/api/group/:id/submit", strictLimit, async (req, res) => {
+app.post("/api/group/:id/submit", availabilitySumbitLimit, async (req, res) => {
     const eventId = req.params.id;
     const { participant_name: rawName, available_slots } = req.body;
     const currentDate = new Date();
