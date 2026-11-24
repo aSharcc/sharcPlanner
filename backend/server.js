@@ -7,6 +7,7 @@ import pg from "pg";
 import connectPgSimple from "connect-pg-simple";
 import { validate as uuidValidate} from "uuid";
 import crypto from "crypto";
+import { rateLimit } from  "express-rate-limit";
 
 const app = express(); // start the webapp with express
 if (process.env.NODE_ENV === "production") {
@@ -30,7 +31,23 @@ const auth = new google.auth.OAuth2({
 const SCOPES = ["https://www.googleapis.com/auth/calendar.events",
     "https://www.googleapis.com/auth/userinfo.email",
     "https://www.googleapis.com/auth/userinfo.profile"
-]; // read and write calendar events
+]; // read and write calendar events and view user info
+
+const publicGetLimit = rateLimit({
+    windowMs: 60*60*1000,
+    limit: 100,
+    message: "Rate limited !! Please try again later. (tell me if this activated under normal use so i can change it)",
+    standardHeaders: "draft-8",
+    legacyHeaders: false
+});
+
+const strictLimit = rateLimit({
+    windowMs: 60*60*1000,
+    limit: 10,
+    message: "Rate limited !! Please try again later. (tell me if this activated under normal use so i can change it)",
+    standardHeaders: "draft-8",
+    legacyHeaders: false
+});
 
 if (!process.env.SESSION_SECRET) {
     throw new Error("SESSION_SECRET is required");
@@ -557,7 +574,7 @@ app.get("/api/themes/current", async (req, res) => {
     }
 });
 
-app.post("/api/feedback", authenticateGoogle, async  (req, res) => {
+app.post("/api/feedback", strictLimit, authenticateGoogle, async  (req, res) => {
     const { message } = req.body;
     if (!message) {
         return res.status(400).json({ error: "Feedback message cannot be empty !!" })
@@ -588,7 +605,7 @@ app.get("/api/group/fetch", authenticateGoogle, async (req, res) => {
     }
 });
 
-app.post("/api/group/create", authenticateGoogle, async (req, res) => {
+app.post("/api/group/create", strictLimit, authenticateGoogle, async (req, res) => {
     const { title: rawTitle, description: rawDescription, duration, startISO, endISO } = req.body;
     if (!rawTitle || !duration || !startISO || !endISO) {
         return res.status(400).json({ error: "Missing fields :c" });
@@ -637,7 +654,7 @@ app.post("/api/group/create", authenticateGoogle, async (req, res) => {
     }
 });
 
-app.get("/api/group/:id", async (req, res) => {
+app.get("/api/group/:id", publicGetLimit, async (req, res) => {
     const eventId = req.params.id;
 
     if (!uuidValidate(eventId)) {
@@ -648,15 +665,15 @@ app.get("/api/group/:id", async (req, res) => {
         if (result.rows.length === 0) {
             return res.status(404).json({ error: "No group events found for that ID" });
         }
-        const event = result.rows[0];  
+        const event = result.rows[0];
         res.json(event);
     } catch (error) {
-        console.error(":c Error getting group event: ", error);  
+        console.error(":c Error getting group event: ", error);
         res.status(500).json({ error: ":c Failed to get group event :c" });
     }
 }); 
 
-app.post("/api/group/:id/submit", async (req, res) => {
+app.post("/api/group/:id/submit", strictLimit, async (req, res) => {
     const eventId = req.params.id;
     const { participant_name: rawName, available_slots } = req.body;
     const currentDate = new Date();
