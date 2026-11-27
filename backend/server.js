@@ -36,30 +36,78 @@ const SCOPES = ["https://www.googleapis.com/auth/calendar.events",
 const publicGetLimit = rateLimit({
     windowMs: 60*60*1000,
     limit: 100,
-    message: "Rate limited !! Please try again later. (tell me if this activated under normal use so i can change it)",
+    message: { error: "Rate limited !! Please try again later. (tell me if this activated under normal use so i can change it)" },
     standardHeaders: "draft-8",
     legacyHeaders: false
 });
 
 const feedbackLimit = rateLimit({
     windowMs: 60*60*1000,
-    limit: 10,
-    message: "Rate limited !! Please try again later. (tell me if this activated under normal use so i can change it)",
+    limit: 30,
+    message: { error: "Rate limited !! Please try again later. (tell me if this activated under normal use so i can change it)" },
     standardHeaders: "draft-8",
     legacyHeaders: false
 });
 
 const availabilitySumbitLimit = rateLimit({
     windowMs: 60*60*1000,
-    limit: 10,
-    message: "Rate limited !! Please try again later. (tell me if this activated under normal use so i can change it)",
+    limit: 30,
+    message: { error: "Rate limited !! Please try again later. (tell me if this activated under normal use so i can change it)" },
     standardHeaders: "draft-8",
     legacyHeaders: false
 });
 
 const groupCreateLimit = rateLimit({
     windowMs: 60*60*1000,
-    limit: 10,
+    limit: 30,
+    message: { error: "Rate limited !! Please try again later. (tell me if this activated under normal use so i can change it)" },
+    standardHeaders: "draft-8",
+    legacyHeaders: false
+});
+
+const groupCalendarLimit = rateLimit({
+    windowMs: 60*60*1000,
+    limit: 20,
+    message: "Rate limited !! Please try again later. (tell me if this activated under normal use so i can change it)",
+    standardHeaders: "draft-8",
+    legacyHeaders: false
+});
+
+const generateSlotLimit = rateLimit({
+    windowMs: 60*60*1000,
+    limit: 20,
+    message: "Rate limited !! Please try again later. (tell me if this activated under normal use so i can change it)",
+    standardHeaders: "draft-8",
+    legacyHeaders: false
+});
+
+const finaliseLimit = rateLimit({
+    windowMs: 60*60*1000,
+    limit: 20,
+    message: "Rate limited !! Please try again later. (tell me if this activated under normal use so i can change it)",
+    standardHeaders: "draft-8",
+    legacyHeaders: false
+});
+
+const addEventLimit = rateLimit({
+    windowMs: 60*60*1000,
+    limit: 50,
+    message: "Rate limited !! Please try again later. (tell me if this activated under normal use so i can change it)",
+    standardHeaders: "draft-8",
+    legacyHeaders: false
+});
+
+const submissionsFetchLimit = rateLimit({
+    windowMs: 60*60*1000,
+    limit: 100,
+    message: "Rate limited !! Please try again later. (tell me if this activated under normal use so i can change it)",
+    standardHeaders: "draft-8",
+    legacyHeaders: false
+});
+
+const groupFetchLimit = rateLimit({
+    windowMs: 60*60*1000,
+    limit: 100,
     message: "Rate limited !! Please try again later. (tell me if this activated under normal use so i can change it)",
     standardHeaders: "draft-8",
     legacyHeaders: false
@@ -231,7 +279,7 @@ app.get("/api/calendar/events", authenticateGoogle, async (req, res) => {
     }
 });
 
-app.post("/api/calendar/add-event", authenticateGoogle, async (req, res) => {
+app.post("/api/calendar/add-event", addEventLimit, authenticateGoogle, async (req, res) => {
     const { summary, description, startISO, endISO} = req.body;
 
     if (!summary || !startISO || !endISO) {
@@ -607,7 +655,7 @@ app.post("/api/feedback", feedbackLimit, authenticateGoogle, async  (req, res) =
     }
 });
 
-app.get("/api/group/fetch", authenticateGoogle, async (req, res) => {
+app.get("/api/group/fetch", groupFetchLimit, authenticateGoogle, async (req, res) => {
     const userId = req.session.userId;
     try {
         const result = await pool.query(`SELECT * FROM group_events WHERE creator_id = $1`, [userId]);
@@ -791,7 +839,7 @@ app.post("/api/group/:id/submit", availabilitySumbitLimit, async (req, res) => {
     }
 });
 
-app.get("/api/group/:id/submissions", authenticateGoogle, async (req, res) => {
+app.get("/api/group/:id/submissions", submissionsFetchLimit, authenticateGoogle, async (req, res) => {
     const eventId = req.params.id;
     const userId = req.session.userId;
 
@@ -823,7 +871,7 @@ app.get("/api/group/:id/submissions", authenticateGoogle, async (req, res) => {
     }
 });
 
-app.post("/api/group/:id/generate_slots", authenticateGoogle, async (req, res) => {
+app.post("/api/group/:id/generate_slots", generateSlotLimit, authenticateGoogle, async (req, res) => {
     const eventId = req.params.id;
     const userId = req.session.userId;
     const { additional_context: rawContext } = req.body; 
@@ -1013,7 +1061,7 @@ app.post("/api/group/:id/generate_slots", authenticateGoogle, async (req, res) =
 
 });
 
-app.post("/api/group/:id/finalise", authenticateGoogle, async (req, res) => {
+app.post("/api/group/:id/finalise", finaliseLimit, authenticateGoogle, async (req, res) => {
     const eventId = req.params.id;
     const userId = req.session.userId;
     const { selected_slot } = req.body;
@@ -1112,6 +1160,75 @@ app.post("/api/group/:id/finalise", authenticateGoogle, async (req, res) => {
     } catch (error) { 
         console.error(":c Error finalising group event: ", error); 
         res.status(500).json({ error: ":c Failed to finalise for group event :c" }); 
+    }
+});
+
+app.post("/api/group/:id/calendar-sync", authenticateGoogle, groupCalendarLimit, async (req, res) => {
+    const eventId = req.params.id;
+    const { timeZone } = req.body;
+
+    if (!uuidValidate(eventId)) {
+        return res.status(400).json({ error: "Invalid event ID" });
+    }
+
+    let userTimeZone = "UTC"
+
+    try {
+        if (typeof timeZone === "string") {
+            Intl.DateTimeFormat("sv-SE", { timeZone: timeZone });
+            userTimeZone = timeZone;
+        } else {
+            console.log("invalid timezone for groupevent calendar add");
+        }
+    } catch (error) {
+        console.log("Invalid timezone !! QwQ");
+    }
+
+    try {
+        const eventResult = await pool.query(`SELECT * FROM group_events WHERE id = $1`, [eventId]);
+        if (eventResult.rows.length === 0) {
+            return res.status(404).json({ error: "No group events found for that ID" });
+        } 
+        const eventDetails = eventResult.rows[0]; 
+
+        if (!eventDetails.finalised) {
+            console.log("a non-finalised event was attempted to have been added to calendar");
+            return res.status(400).json({ error: "Event not finalised" });
+        }
+
+        const startISO = eventDetails.finalised_slot.startISO;
+        const endISO = eventDetails.finalised_slot.endISO;
+       
+        const calendar = google.calendar({ version: "v3", auth: req.authClient });
+
+        const event = {
+            summary: eventDetails.title,
+            description: eventDetails.description || "Created with sharcPlanner",
+            start: {
+                dateTime: startISO,
+                timeZone: userTimeZone,
+            }, 
+            end: {
+                dateTime: endISO,
+                timeZone: userTimeZone,
+            },
+        };
+ 
+        const response = await calendar.events.insert({
+            calendarId: "primary",
+            requestBody: event,
+        });
+
+        console.log("Event created !!");
+
+        return res.json({ 
+            message: "Event created successfully",
+            link: response.data.htmlLink,
+            event: response.data
+        });
+    } catch (error) {
+        console.error(":c Error adding group event to calendar: ", error);
+        return res.status(500).json({ error: ":c Failed to add group event to calendar :c" });
     }
 });
 

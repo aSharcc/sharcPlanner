@@ -287,17 +287,47 @@
                                 if (event.finalised === true) {
                                     groupManageDiv.innerHTML = `<hr><h4><strong>${escapeHTML(event.title)}</strong></h4><p><strong>Chosen Slot: ${new Date(event.finalised_slot.startISO).toLocaleString("sv-SE", {timeZone: userTimeZone})} to ${new Date(event.finalised_slot.endISO).toLocaleString("sv-SE", {timeZone: userTimeZone})}</strong></p>`
                                     groupManageDiv.hidden = false;
-                                    const calendarSyncButton = document.createElement("button");
-                                    calendarSyncButton.innerText = "Add to Google Calendar"; 
+                                    const calendarAddBtn = document.createElement("button");
+                                    calendarAddBtn.innerText = "Retry Add to Google Calendar"; 
  
-                                    groupManageDiv.appendChild(calendarSyncButton); 
+                                    groupManageDiv.appendChild(calendarAddBtn);
+                                    calendarAddBtn.addEventListener("click", async () => {
+                                        try {
+                                            calendarAddBtn.disabled = true;
+                                            calendarAddBtn.innerText = "Adding to calendar..."
+                                            const response = await fetch(`/api/group/${event.id}/calendar-sync`, {
+                                                method: "POST",
+                                                headers: { "Content-Type": "application/json" },
+                                                body: JSON.stringify({ timeZone: userTimeZone })
+                                            });
+                                            const result = await response.json();
+                                            if (!response.ok) {
+                                                showFlash(`${response.status}: ${result.error}`, "bad");
+                                                return;
+                                            } else {
+                                                showFlash(`Event added to google calendar successfully !!`, "good");
+                                                groupManageDiv.removeChild(calendarAddBtn);
+                                                const newText = document.createElement("p");
+                                                newText.innerHTML = `<h3>Added to calendar !!</h3><p><strong>${escapeHTML(result.event.summary)}: </strong><a href="${escapeHTML(result.link)}">Link</a><br>
+                                                                <strong>Start: </strong>${new Date(result.event.start.dateTime).toLocaleString([], { timeStyle: "short", dateStyle: "medium", timeZone: userTimeZone })}<br>
+                                                                <strong>End: </strong>${new Date(result.event.end.dateTime).toLocaleString([], { timeStyle: "short", dateStyle: "medium", timeZone: userTimeZone })}</p>`;
+                                                groupManageDiv.appendChild(newText);
+                                            }
+                                        } catch (error) {
+                                            showFlash(`Error adding event to Google Calendar: ${error}`, "bad")
+                                        } finally {
+                                            calendarAddBtn.disabled = false;
+                                            calendarAddBtn.innerText = "Add to Google Calendar";
+                                        }
+                                    });
+                                    return;
                                 }
                                 const response = await fetch(`/api/group/${event.id}/submissions`);
                                 const data = await response.json();
                                 if (!response.ok) {
-                                    showFlash(`${data.error}`, "bad")
+                                    showFlash(`${data.error}`, "bad");
                                     return;
-                                }
+                                } 
                                 if (!data.availabilities) {
                                     groupManageDiv.innerHTML = `<hr><h4><strong>${escapeHTML(event.title)}</strong></h4><p>No Submissions Yet !!</p><hr>`;
                                     groupManageDiv.hidden = false;
@@ -671,6 +701,12 @@
                                 headers: { "Content-Type": "application/json" },
                                 body: JSON.stringify({ message }) 
                             });
+                            const result = await response.json();
+
+                            if (response.status === 429) {
+                                showFlash(`${result.error}`, "bad");
+                                return;
+                            }
 
                             if (response.ok) {
                                 console.log("feedback submitted successfully");
@@ -728,12 +764,16 @@
                                 body: JSON.stringify(payload)
                             });
 
+                            const result = await response.json();
+
                             if (response.status === 401) {
                                 showFlash("please login first !!", "bad");
                                 return;
                             }
-
-                            const result = await response.json();
+                            if (response.status === 429) {
+                                showFlash(`${result.error}`, "bad");
+                                return;
+                            }
 
                             if (response.ok) {
                                 form.reset();
@@ -763,7 +803,7 @@
                                 });
                                 fetchGroupEvents();
                             } else { 
-                                console.log("group event creation failed: ", response.status);
+                                console.log("group event creation failed: ", response.status); 
                                 console.log(response);
                                 showFlash(`Failed to create group event (Status: ${response.status})`, "bad");
                             }
@@ -784,15 +824,15 @@
                             });
                             const result = await response.json();
                             if (response.status === 500) {
-                                showFlash("Event may be saved but not on your google calendar, please reload", "bad");
+                                showFlash("Event may be saved but not on your google calendar, please check then click the button to add it.", "bad");
                                 return;
                             }
                             if (!response.ok) {
-                                showFlash(`${result.error}`, "bad")
+                                showFlash(`${result.error}`, "bad");
                                 return;
                             }
                             if (result.error) {
-                                showFlash(`${result.error}`, "bad")
+                                showFlash(`${result.error}`, "bad");
                                 return;
                             }
                             
