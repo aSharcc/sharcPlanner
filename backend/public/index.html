@@ -825,6 +825,7 @@
                             const result = await response.json();
                             if (response.status === 500) {
                                 showFlash("Event may be saved but not on your google calendar, please check then click the button to add it.", "bad");
+                                fetchGroupEvents();
                                 return;
                             }
                             if (!response.ok) {

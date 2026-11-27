@@ -177,6 +177,7 @@
                     const nowStr = new Date().toLocaleString("sv-SE", { timeZone: userTimeZone, year: "numeric", month: "2-digit", day: "2-digit", hour:"2-digit", minute: "2-digit", second: "2-digit", hour12: false}).replace(" ", "T");
 
                     minDate = startStr > nowStr ? startStr : nowStr;
+                    minDate = minDate.substring(0, 16) + ":00";
                     maxDate = range_end.toLocaleString("sv-SE", { timeZone: userTimeZone, year: "numeric", month: "2-digit", day: "2-digit", hour:"2-digit", minute: "2-digit", second: "2-digit", hour12: false}).replace(" ", "T");
 
                     document.getElementById("availability-slot-1-start").min = minDate;
