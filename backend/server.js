@@ -168,7 +168,15 @@ function authenticateGoogle(req, res, next) {
 
 app.get("/api/auth/google", (req, res) => {
     const state = crypto.randomBytes(32).toString('hex');
+
+    let returnTo = req.query.returnTo || req.get('referrer') || "/";
+
+    if (!returnTo.startsWith("/")) {
+        returnTo = "/";
+    }
+
     req.session.oauthState = state;
+    req.session.returnTo = returnTo;
     req.session.save((error) => {
         if (error) {
             console.error("error saving oauth session:", error);
@@ -198,6 +206,8 @@ app.get("/api/auth/callback", async (req, res) => {
     if (!state || state !== req.session.oauthState) {
         return res.status(403).json({ error: "Invalid state parameter. Possible CRSF attack" });
     }
+    const redirectTo = req.session.returnTo || "/";
+    delete req.session.returnTo;
     delete req.session.oauthState;
     try {
         const { tokens } = await auth.getToken(code);
@@ -227,7 +237,7 @@ app.get("/api/auth/callback", async (req, res) => {
 
             console.log("Successfully authenticated !!");
 
-            res.redirect("/");
+            res.redirect(redirectTo);
         });
     } catch (error) {
         console.error("Error exchanging token: ", error);

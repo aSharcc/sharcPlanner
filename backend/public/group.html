@@ -65,6 +65,8 @@
             const addAvailabilitySlot = document.getElementById("add-slot");
             const dynamicInputs = document.getElementById("dynamic-slots");
             const flashBox = document.getElementById("flash-message");
+            const loginButton = document.getElementById("login-button");
+            const userInfoLi = document.getElementById("user-info");
 
             const userTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
             const id = new URLSearchParams(window.location.search).get("id");
@@ -94,6 +96,58 @@
                         return "";
                     }
                 return str.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;");
+            }
+
+            async function updateLoginStatus() {
+                try {
+                    const response = await fetch("/api/auth/status");
+                    const data = await response.json();
+                    if (data.isAuthenticated === true) { 
+                        loginButton.innerText = "Log Out"; 
+                        loginButton.style.borderColor = "green";
+                        loginButton.onclick = async (event) => {
+                            event.preventDefault();
+                            await logout();
+                            location.reload();
+                        };
+                        userInfo();
+                    } else {
+                        loginButton.innerText = "Connect to Google Calendar";
+                        loginButton.style.borderColor = "red";
+                        loginButton.href = `/api/auth/google?returnTo=${encodeURIComponent(window.location.pathname + window.location.search)}`;
+                        userInfoLi.innerHTML = ``;
+                        loginButton.onclick = null;
+                    } 
+                } catch (error) { 
+                    console.log("Could not get login status: ", error);
+                }
+            }
+
+            async function userInfo() {
+                try {
+                    const response = await fetch("/api/auth/me");
+                    if (response.status === 401) {
+                        showFlash("Failed to get user info", "bad");
+                        return;
+                    }
+
+                    const data = await response.json();
+
+                    userInfoLi.innerHTML = `${escapeHTML(data.username)}`;
+                } catch (error) {
+                    console.log(error);
+                }
+            }
+
+            async function logout() {
+                try {
+                    await fetch("/api/auth/logout", {
+                        method: "POST"
+                    });
+                } catch (error) {
+                    showFlash("Failed to logout", "bad");
+                    console.log("Failed to logout", error);
+                }
             }
 
             async function getEvent() {
@@ -336,6 +390,7 @@
             timezoneDiv.innerHTML = `<p><strong>This will be using the timezone ${userTimeZone}</strong> (this should be ur timezone, pls tell me if this is wrong)</p><hr>`;
             getEvent();
             
+            updateLoginStatus();
         </script>
     </body>
 </html>

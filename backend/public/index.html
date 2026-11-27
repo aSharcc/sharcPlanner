@@ -473,7 +473,7 @@
                         } else {
                             loginButton.innerText = "Connect to Google Calendar";
                             loginButton.style.borderColor = "red";
-                            loginButton.href = "/api/auth/google";
+                            loginButton.href = `/api/auth/google?returnTo=${encodeURIComponent(window.location.pathname + window.location.search)}`;
                             userInfoLi.innerHTML = ``;
                             loginButton.onclick = null;
                         } 

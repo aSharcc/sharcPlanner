@@ -27,7 +27,8 @@ CREATE TABLE IF NOT EXISTS weekly_themes (
     start_date DATE NOT NULL UNIQUE,
     title VARCHAR(255) NOT NULL, 
     description TEXT,
-    suggested_hours NUMERIC DEFAULT 2.0
+    suggested_hours NUMERIC DEFAULT 2.0,
+    CONSTRAINT check_suggested_hours CHECK (suggested_hours >= 0)
 );
 
 CREATE TABLE IF NOT EXISTS group_events (
@@ -40,19 +41,26 @@ CREATE TABLE IF NOT EXISTS group_events (
     range_end TIMESTAMPTZ NOT NULL,
     finalised BOOLEAN NOT NULL DEFAULT FALSE,
     finalised_slot JSONB,
-    date_created TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    date_created TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT check_valid_range CHECK (range_end > range_start),
+    CONSTRAINT check_duration CHECK (duration > 0)
 ); 
+
+CREATE INDEX IF NOT EXISTS idx_group_events_creator_id ON group_events (creator_id);
 
 CREATE TABLE IF NOT EXISTS group_availability (
     id SERIAL PRIMARY KEY,
-    group_event_id UUID REFERENCES group_events(id) ON DELETE CASCADE,
+    group_event_id UUID NOT NULL REFERENCES group_events(id) ON DELETE CASCADE,
     participant_name TEXT NOT NULL,
     available_slots JSONB
 );
+
+CREATE INDEX IF NOT EXISTS idx_group_availability_group_event_id ON group_availability (group_event_id);
 
 CREATE TABLE IF NOT EXISTS ai_usage (
     user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
     usage_date DATE NOT NULL DEFAULT CURRENT_DATE,
     request_count INTEGER NOT NULL DEFAULT 0,
-    PRIMARY KEY(user_id, usage_date)
+    PRIMARY KEY(user_id, usage_date),
+    CONSTRAINT check_usage CHECK (request_count >= 0)
 ); 
